@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Circle } from "react-leaflet";
 import L from "leaflet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -174,7 +174,7 @@ export default function Home() {
             
             {/* Simulation of Water Quality / Pollution with Circles if data available */}
             {layers.pollution && pins?.filter(p => p.type === 'pollution').map(p => (
-              <L.Circle 
+              <Circle 
                 key={`pollute-layer-${p.id}`}
                 center={[p.lat, p.lng]}
                 pathOptions={{ color: 'red', fillColor: 'red', fillOpacity: 0.2 }}
