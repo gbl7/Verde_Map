@@ -18,6 +18,9 @@ export function EsriLayers({ showEpaEcho, showGemsWater }: EsriLayersProps) {
         url: "https://echogeo.epa.gov/arcgis/rest/services/ECHO/Facilities/MapServer",
         opacity: 0.7,
         layers: [0],
+        layerDefs: {
+          0: "FAC_MAJOR_FLAG = 'Y' OR FAC_QTRS_WITH_NC > 0 OR FAC_COMPLIANCE_STATUS = 'Significant Violation'"
+        }
       });
       epaLayer.addTo(map);
     }
