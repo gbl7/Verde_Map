@@ -17,7 +17,7 @@ export function BadgeNotification({ badges, onDismiss }: BadgeNotificationProps)
         initial={{ opacity: 0, scale: 0.8, y: -20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.8, y: -20 }}
-        className="fixed top-20 left-1/2 -translate-x-1/2 z-50"
+        className="fixed top-4 left-1/2 -translate-x-1/2 z-50"
         data-testid="badge-notification"
       >
         <div className="bg-gradient-to-br from-amber-400 via-orange-400 to-rose-400 p-1 rounded-2xl shadow-2xl">
