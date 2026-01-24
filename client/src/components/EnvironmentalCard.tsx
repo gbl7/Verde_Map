@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Wind, Droplets, Footprints, Trees, CheckCircle2, MessageCircle, Send, Loader2, Factory, AlertTriangle, ChevronDown, Lightbulb, Info } from "lucide-react";
+import { Wind, Droplets, Footprints, Trees, CheckCircle2, MessageCircle, Send, Loader2, Factory, AlertTriangle, ChevronDown, Lightbulb, Info, X, Minimize2, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -144,7 +144,13 @@ interface EnvironmentalCardProps {
   isLoading?: boolean;
 }
 
-export function EnvironmentalCard({ data, lat, lng, isLoading }: EnvironmentalCardProps) {
+interface EnvironmentalCardFullProps extends EnvironmentalCardProps {
+  onClose?: () => void;
+  isMinimized?: boolean;
+  onToggleMinimize?: () => void;
+}
+
+export function EnvironmentalCard({ data, lat, lng, isLoading, onClose, isMinimized, onToggleMinimize }: EnvironmentalCardFullProps) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [isAsking, setIsAsking] = useState(false);
@@ -195,28 +201,92 @@ export function EnvironmentalCard({ data, lat, lng, isLoading }: EnvironmentalCa
   else if (average < 50) { vibeLabel = "Poor"; vibeColor = "text-red-500"; }
   else if (average < 70) { vibeLabel = "Moderate"; vibeColor = "text-yellow-600"; }
 
+  // Minimized view
+  if (isMinimized) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-white/90 backdrop-blur-md border border-white/40 rounded-2xl shadow-xl overflow-hidden"
+      >
+        <button
+          onClick={onToggleMinimize}
+          className="w-full p-3 flex items-center gap-3 hover:bg-secondary/30 transition-colors"
+          data-testid="button-expand-card"
+        >
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md flex-shrink-0 ${
+            average >= 70 ? 'bg-green-500' : average >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+          }`}>
+            {average}
+          </div>
+          <div className="flex-1 text-left min-w-0">
+            <div className="font-semibold text-sm text-foreground truncate">{data.location}</div>
+            <div className={`text-xs ${vibeColor}`}>{vibeLabel} Environmental Vibe</div>
+          </div>
+          <Maximize2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+        </button>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white/90 backdrop-blur-md border border-white/40 rounded-3xl shadow-xl w-full max-w-md overflow-hidden relative flex flex-col max-h-[80vh]"
+      className="bg-white/90 backdrop-blur-md border border-white/40 rounded-3xl shadow-xl w-full max-w-md overflow-hidden relative flex flex-col max-h-[70vh] md:max-h-[80vh]"
     >
       <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-primary via-accent to-primary z-10" />
       
-      <div className="p-6 overflow-y-auto custom-scrollbar">
-        <div className="mb-6">
-          <div className="flex justify-between items-start">
-            <div>
-              <h2 className="text-2xl font-bold font-display text-foreground">{data.location}</h2>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Overall Vibe</span>
-                <span className={`font-bold ${vibeColor}`}>{vibeLabel} ({average})</span>
-              </div>
+      {/* Header with close/minimize buttons */}
+      <div className="flex items-center justify-between p-3 pt-4 border-b border-secondary/30">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md flex-shrink-0 ${
+            average >= 70 ? 'bg-green-500' : average >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+          }`}>
+            {average}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-bold font-display text-foreground truncate">{data.location}</h2>
+            <div className="flex items-center gap-1">
+              <span className={`text-xs font-medium ${vibeColor}`}>{vibeLabel}</span>
             </div>
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg flex-shrink-0 ${
-              average >= 70 ? 'bg-green-500' : average >= 50 ? 'bg-yellow-500' : 'bg-red-500'
-            }`}>
-              {average}
+          </div>
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {onToggleMinimize && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={onToggleMinimize}
+              className="h-8 w-8 rounded-lg"
+              data-testid="button-minimize-card"
+            >
+              <Minimize2 className="w-4 h-4" />
+            </Button>
+          )}
+          {onClose && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={onClose}
+              className="h-8 w-8 rounded-lg"
+              data-testid="button-close-card"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+      
+      <div className="p-4 md:p-6 overflow-y-auto custom-scrollbar">
+        <div className="mb-4">
+          <div className="flex justify-between items-start">
+            <div className="sr-only">
+              <h2>{data.location}</h2>
+              <div className="flex items-center gap-2 mt-1">
+                <span>Overall Vibe</span>
+                <span className={vibeColor}>{vibeLabel} ({average})</span>
+              </div>
             </div>
           </div>
           

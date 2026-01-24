@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Circle } from "react-leaflet";
+import { useState, useEffect } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, MapPin, Loader2, Navigation, Compass } from "lucide-react";
+import { Search, MapPin, Navigation, Compass, Layers, X, Menu } from "lucide-react";
 import { usePins } from "@/hooks/use-pins";
 import { useAnalyzeLocation } from "@/hooks/use-analysis";
 import { EnvironmentalCard } from "@/components/EnvironmentalCard";
@@ -71,34 +71,47 @@ export default function Home() {
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [isPinDialogOpen, setIsPinDialogOpen] = useState(false);
+  const [isCardMinimized, setIsCardMinimized] = useState(false);
+  const [isCardVisible, setIsCardVisible] = useState(true);
+  const [showLayerMenu, setShowLayerMenu] = useState(false);
   const { toast } = useToast();
 
   const { data: pins } = usePins();
   const analyze = useAnalyzeLocation();
   const { stats, levelInfo, newBadges, recordPinDrop, recordExploration, clearNewBadges } = useGamification();
 
-  // Initialize with user location
+  // Initialize with user location (with fast timeout fallback)
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
+    const setDefaultLocation = () => {
+      if (!center) {
+        setCenter([37.7749, -122.4194]);
+      }
+    };
+    
+    // Set fallback after 3 seconds if geolocation is slow
+    timeoutId = setTimeout(setDefaultLocation, 3000);
+    
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          clearTimeout(timeoutId);
           const { latitude, longitude } = position.coords;
           setCenter([latitude, longitude]);
-          // Optional: Auto-analyze current location on load? Let's wait for user action instead.
         },
         () => {
-          // Default to San Francisco if blocked
+          clearTimeout(timeoutId);
           setCenter([37.7749, -122.4194]);
-          toast({
-            title: "Location access denied",
-            description: "Defaulting map to San Francisco.",
-            variant: "destructive",
-          });
-        }
+        },
+        { timeout: 5000, maximumAge: 60000 }
       );
     } else {
+      clearTimeout(timeoutId);
       setCenter([37.7749, -122.4194]);
     }
+    
+    return () => clearTimeout(timeoutId);
   }, []);
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -140,6 +153,17 @@ export default function Home() {
     setSelectedLocation({ lat, lng });
     analyze.mutate({ lat, lng });
     recordExploration();
+    setIsCardVisible(true);
+    setIsCardMinimized(false);
+  };
+  
+  const handleCloseCard = () => {
+    setIsCardVisible(false);
+    analyze.reset();
+  };
+  
+  const handleToggleMinimize = () => {
+    setIsCardMinimized(!isCardMinimized);
   };
 
   const handleDropPin = () => {
@@ -219,59 +243,123 @@ export default function Home() {
       <div className="absolute inset-0 z-10 pointer-events-none flex flex-col">
         
         {/* Top Bar: Search & Controls */}
-        <div className="p-4 md:p-6 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between pointer-events-auto bg-gradient-to-b from-black/5 to-transparent">
-          <div className="flex gap-2 w-full max-w-md shadow-2xl rounded-2xl bg-white/90 backdrop-blur-md p-1.5 border border-white/50">
-            <form onSubmit={handleSearch} className="flex-1 flex gap-2">
+        <div className="p-3 md:p-6 flex gap-2 md:gap-4 items-center justify-between pointer-events-auto bg-gradient-to-b from-black/10 to-transparent">
+          {/* Search bar */}
+          <div className="flex gap-2 flex-1 max-w-sm md:max-w-md shadow-xl rounded-2xl bg-white/95 backdrop-blur-md p-1 md:p-1.5 border border-white/50">
+            <form onSubmit={handleSearch} className="flex-1 flex gap-1 md:gap-2">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Search className="absolute left-2.5 md:left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search city, place..." 
-                  className="pl-9 border-transparent bg-transparent focus-visible:ring-0 rounded-xl h-10"
+                  placeholder="Search..." 
+                  className="pl-8 md:pl-9 border-transparent bg-transparent focus-visible:ring-0 rounded-xl h-9 md:h-10 text-sm"
+                  data-testid="input-search"
                 />
               </div>
-              <Button type="submit" size="sm" className="rounded-xl h-10 px-4 bg-primary hover:bg-primary/90 text-white shadow-md">
+              <Button type="submit" size="sm" className="rounded-xl h-9 md:h-10 px-3 md:px-4 bg-primary hover:bg-primary/90 text-white shadow-md" data-testid="button-search">
                 Go
               </Button>
             </form>
           </div>
 
-          <div className="flex gap-3">
-            <div className="flex gap-1 bg-white/90 backdrop-blur rounded-xl p-1 shadow-lg border border-white/50 pointer-events-auto">
+          {/* Right controls */}
+          <div className="flex gap-1.5 md:gap-3 flex-shrink-0">
+            {/* Layer toggle - collapsible on mobile */}
+            <div className="relative">
               <Button 
-                variant={layers.air ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setLayers(l => ({...l, air: !l.air}))}
-                className="rounded-lg h-8 px-3 text-xs"
+                onClick={() => setShowLayerMenu(!showLayerMenu)}
+                variant="secondary"
+                size="icon"
+                className="md:hidden h-9 w-9 rounded-xl shadow-lg bg-white/95 backdrop-blur border border-white/50"
+                data-testid="button-layers-mobile"
               >
-                Air
+                <Layers className="w-4 h-4" />
               </Button>
-              <Button 
-                variant={layers.water ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setLayers(l => ({...l, water: !l.water}))}
-                className="rounded-lg h-8 px-3 text-xs"
-              >
-                Water
-              </Button>
-              <Button 
-                variant={layers.pollution ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setLayers(l => ({...l, pollution: !l.pollution}))}
-                className="rounded-lg h-8 px-3 text-xs"
-              >
-                Pollution
-              </Button>
+              
+              {/* Desktop layer toggles */}
+              <div className="hidden md:flex gap-1 bg-white/95 backdrop-blur rounded-xl p-1 shadow-lg border border-white/50">
+                <Button 
+                  variant={layers.air ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setLayers(l => ({...l, air: !l.air}))}
+                  className="rounded-lg h-8 px-3 text-xs"
+                  data-testid="button-layer-air"
+                >
+                  Air
+                </Button>
+                <Button 
+                  variant={layers.water ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setLayers(l => ({...l, water: !l.water}))}
+                  className="rounded-lg h-8 px-3 text-xs"
+                  data-testid="button-layer-water"
+                >
+                  Water
+                </Button>
+                <Button 
+                  variant={layers.pollution ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setLayers(l => ({...l, pollution: !l.pollution}))}
+                  className="rounded-lg h-8 px-3 text-xs"
+                  data-testid="button-layer-pollution"
+                >
+                  EPA
+                </Button>
+              </div>
+              
+              {/* Mobile layer dropdown */}
+              <AnimatePresence>
+                {showLayerMenu && (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                    className="md:hidden absolute right-0 top-12 bg-white/95 backdrop-blur rounded-xl p-2 shadow-xl border border-white/50 z-50 min-w-[140px]"
+                  >
+                    <div className="flex flex-col gap-1">
+                      <Button 
+                        variant={layers.air ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setLayers(l => ({...l, air: !l.air}))}
+                        className="rounded-lg h-9 justify-start text-sm"
+                      >
+                        Air Quality
+                      </Button>
+                      <Button 
+                        variant={layers.water ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setLayers(l => ({...l, water: !l.water}))}
+                        className="rounded-lg h-9 justify-start text-sm"
+                      >
+                        Water Quality
+                      </Button>
+                      <Button 
+                        variant={layers.pollution ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setLayers(l => ({...l, pollution: !l.pollution}))}
+                        className="rounded-lg h-9 justify-start text-sm"
+                      >
+                        EPA Facilities
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
+            
+            {/* Surprise Me - hidden on mobile, icon only on tablet */}
             <Button 
               onClick={handleRandomLocation}
               variant="secondary"
-              className="rounded-xl shadow-lg bg-white/90 backdrop-blur hover:bg-white text-foreground font-medium border border-white/50"
+              className="hidden sm:flex rounded-xl shadow-lg bg-white/95 backdrop-blur hover:bg-white text-foreground font-medium border border-white/50 h-9 md:h-10 px-2 md:px-4"
+              data-testid="button-random"
             >
-              <Compass className="w-4 h-4 mr-2 text-accent" />
-              Surprise Me
+              <Compass className="w-4 h-4 md:mr-2 text-accent" />
+              <span className="hidden md:inline">Surprise Me</span>
             </Button>
+            
+            {/* My Location */}
             <Button 
               onClick={() => {
                 if (navigator.geolocation) {
@@ -282,17 +370,19 @@ export default function Home() {
                   });
                 }
               }}
-              className="w-10 h-10 p-0 rounded-xl shadow-lg bg-white/90 backdrop-blur hover:bg-white text-foreground border border-white/50"
+              size="icon"
+              className="h-9 w-9 md:w-10 md:h-10 rounded-xl shadow-lg bg-white/95 backdrop-blur hover:bg-white text-foreground border border-white/50"
+              data-testid="button-my-location"
             >
-              <Navigation className="w-5 h-5 text-primary" />
+              <Navigation className="w-4 h-4 md:w-5 md:h-5 text-primary" />
             </Button>
           </div>
         </div>
         
         {/* Bottom Row: Gamification Panel (left) and Analysis Card (right) */}
-        <div className="flex-1 flex items-end p-4 md:p-6 pointer-events-none">
-          {/* Left side: Gamification Panel */}
-          <div className="pointer-events-auto w-64 hidden md:block">
+        <div className="flex-1 flex items-end p-3 md:p-6 pointer-events-none gap-3">
+          {/* Left side: Gamification Panel - desktop only */}
+          <div className="pointer-events-auto w-56 hidden lg:block">
             <GamificationPanel stats={stats} levelInfo={levelInfo} />
           </div>
           
@@ -300,23 +390,25 @@ export default function Home() {
           <div className="flex-1" />
           
           {/* Right side: Analysis Card */}
-          <div className="pointer-events-auto w-full max-w-sm md:max-w-md flex flex-col gap-4">
+          <div className="pointer-events-auto w-full max-w-[calc(100%-80px)] sm:max-w-sm md:max-w-md flex flex-col gap-3">
             
             {/* Context Actions if location selected */}
             <AnimatePresence>
-              {selectedLocation && (
+              {selectedLocation && isCardVisible && (
                 <motion.div 
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
-                  className="flex justify-end mb-2"
+                  className="flex justify-end"
                 >
                   <Button 
                     onClick={handleDropPin}
-                    className="rounded-full shadow-xl bg-accent hover:bg-accent/90 text-white font-bold px-6 py-6"
+                    className="rounded-full shadow-xl bg-accent hover:bg-accent/90 text-white font-bold px-4 py-5 md:px-6 md:py-6 text-sm md:text-base"
+                    data-testid="button-drop-pin"
                   >
-                    <MapPin className="w-5 h-5 mr-2" />
-                    Drop a Pin Here
+                    <MapPin className="w-4 h-4 md:w-5 md:h-5 mr-2" />
+                    <span className="hidden sm:inline">Drop a Pin Here</span>
+                    <span className="sm:hidden">Pin</span>
                   </Button>
                 </motion.div>
               )}
@@ -325,20 +417,32 @@ export default function Home() {
             {/* Analysis Card Display */}
             <AnimatePresence mode="wait">
               {analyze.isPending ? (
-                <EnvironmentalCard key="loading" isLoading={true} data={{} as any} />
-              ) : analyze.data ? (
-                <EnvironmentalCard key="data" data={analyze.data} lat={selectedLocation?.lat} lng={selectedLocation?.lng} />
+                <EnvironmentalCard 
+                  key="loading" 
+                  isLoading={true} 
+                  data={{} as any} 
+                />
+              ) : analyze.data && isCardVisible ? (
+                <EnvironmentalCard 
+                  key={`data-${selectedLocation?.lat}-${selectedLocation?.lng}`} 
+                  data={analyze.data} 
+                  lat={selectedLocation?.lat} 
+                  lng={selectedLocation?.lng}
+                  onClose={handleCloseCard}
+                  isMinimized={isCardMinimized}
+                  onToggleMinimize={handleToggleMinimize}
+                />
               ) : !selectedLocation ? (
                 <motion.div 
                   initial={{ opacity: 0 }} 
                   animate={{ opacity: 1 }}
-                  className="bg-white/90 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-white/50"
+                  className="bg-white/95 backdrop-blur-md p-4 md:p-6 rounded-2xl md:rounded-3xl shadow-xl border border-white/50"
                 >
-                  <h3 className="text-xl font-bold font-display text-primary mb-2">Welcome to EcoVibe</h3>
-                  <p className="text-muted-foreground">
-                    Click anywhere on the map or search for a location to see its environmental "vibe" score, generated by AI.
+                  <h3 className="text-lg md:text-xl font-bold font-display text-primary mb-2">Welcome to EcoVibe</h3>
+                  <p className="text-sm md:text-base text-muted-foreground">
+                    Tap anywhere on the map to see its environmental vibe score.
                   </p>
-                  <div className="mt-4 flex flex-wrap gap-4 text-sm text-muted-foreground/80">
+                  <div className="mt-3 md:mt-4 flex flex-wrap gap-3 md:gap-4 text-xs md:text-sm text-muted-foreground/80">
                     <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-orange-600"/>Wildlife</div>
                     <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-600"/>Trails</div>
                     <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-600"/>Issues</div>
@@ -350,8 +454,8 @@ export default function Home() {
           </div>
         </div>
         
-        {/* Mobile: Gamification Panel at bottom-left, above other content */}
-        <div className="absolute bottom-4 left-4 z-20 pointer-events-auto w-56 md:hidden">
+        {/* Mobile/Tablet: Gamification Panel at bottom-left */}
+        <div className="absolute bottom-3 left-3 z-20 pointer-events-auto w-48 sm:w-52 lg:hidden">
           <GamificationPanel stats={stats} levelInfo={levelInfo} />
         </div>
       </div>
