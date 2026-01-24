@@ -15,21 +15,41 @@ import { useGamification } from "@/hooks/use-gamification";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 
-// --- Custom Icons ---
-const createIcon = (color: string) => {
+// --- Custom Icons with SVG symbols for different pin types ---
+const createPinIcon = (color: string, svgPath: string) => {
   return L.divIcon({
     className: "custom-pin",
-    html: `<div style="background-color: ${color}; width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
+    html: `
+      <div style="
+        background-color: ${color}; 
+        width: 32px; 
+        height: 32px; 
+        border-radius: 50%; 
+        border: 3px solid white; 
+        box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      ">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          ${svgPath}
+        </svg>
+      </div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
   });
 };
 
 const icons = {
-  animal: createIcon("#ea580c"), // Orange-600
-  pollution: createIcon("#dc2626"), // Red-600
-  trail: createIcon("#16a34a"), // Green-600
-  other: createIcon("#2563eb"), // Blue-600
+  // Wildlife/Animal - Orange with paw print
+  animal: createPinIcon("#ea580c", '<circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="4" cy="8" r="2"/><path d="M12 14c3 0 5 2 5 5a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2c0-3 2-5 5-5"/>'),
+  // Pollution/Concern - Red with warning triangle
+  pollution: createPinIcon("#dc2626", '<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.363 3.591l-8.106 13.534A1.914 1.914 0 0 0 3.9 20h16.2a1.914 1.914 0 0 0 1.643-2.875l-8.106-13.534a1.914 1.914 0 0 0-3.274 0z"/>'),
+  // Trail/Park - Green with trees
+  trail: createPinIcon("#16a34a", '<path d="M12 3v18"/><path d="M5 12l7-4 7 4"/><path d="M5 18l7-4 7 4"/>'),
+  // Other - Blue with info icon
+  other: createPinIcon("#2563eb", '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>'),
+  // User location marker
   user: L.divIcon({
     className: "user-pin",
     html: `<div style="background-color: #2563eb; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.3);"></div>`,
