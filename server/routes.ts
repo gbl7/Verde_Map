@@ -6,6 +6,71 @@ import { z } from "zod";
 import OpenAI from "openai";
 import { queryNearbyEpaFacilities } from "./epaQuery";
 
+// Reverse geocode coordinates to get accurate location name
+async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16&addressdetails=1`,
+      {
+        headers: {
+          'User-Agent': 'EcoVibe/1.0 (environmental mapping app)'
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      console.warn(`Reverse geocoding failed: ${response.status}`);
+      return `Location at ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    }
+    
+    const data = await response.json();
+    const addr = data.address || {};
+    
+    // Build location name from address components
+    const parts: string[] = [];
+    
+    // Try to get the most specific name first
+    const specificPlace = addr.neighbourhood || addr.suburb || addr.hamlet || addr.village;
+    if (specificPlace) parts.push(specificPlace);
+    
+    // Add city/town
+    const city = addr.city || addr.town || addr.municipality;
+    if (city && city !== specificPlace) parts.push(city);
+    
+    // Add state abbreviation
+    const state = addr.state;
+    if (state) {
+      // Common US state abbreviations
+      const stateAbbrevs: Record<string, string> = {
+        'California': 'CA', 'New York': 'NY', 'Texas': 'TX', 'Florida': 'FL',
+        'Illinois': 'IL', 'Pennsylvania': 'PA', 'Ohio': 'OH', 'Georgia': 'GA',
+        'North Carolina': 'NC', 'Michigan': 'MI', 'New Jersey': 'NJ', 'Virginia': 'VA',
+        'Washington': 'WA', 'Arizona': 'AZ', 'Massachusetts': 'MA', 'Tennessee': 'TN',
+        'Indiana': 'IN', 'Missouri': 'MO', 'Maryland': 'MD', 'Wisconsin': 'WI',
+        'Colorado': 'CO', 'Minnesota': 'MN', 'South Carolina': 'SC', 'Alabama': 'AL',
+        'Louisiana': 'LA', 'Kentucky': 'KY', 'Oregon': 'OR', 'Oklahoma': 'OK',
+        'Connecticut': 'CT', 'Utah': 'UT', 'Iowa': 'IA', 'Nevada': 'NV',
+        'Arkansas': 'AR', 'Mississippi': 'MS', 'Kansas': 'KS', 'New Mexico': 'NM',
+        'Nebraska': 'NE', 'Idaho': 'ID', 'West Virginia': 'WV', 'Hawaii': 'HI',
+        'New Hampshire': 'NH', 'Maine': 'ME', 'Montana': 'MT', 'Rhode Island': 'RI',
+        'Delaware': 'DE', 'South Dakota': 'SD', 'North Dakota': 'ND', 'Alaska': 'AK',
+        'District of Columbia': 'DC', 'Vermont': 'VT', 'Wyoming': 'WY'
+      };
+      parts.push(stateAbbrevs[state] || state);
+    }
+    
+    if (parts.length === 0) {
+      return data.display_name?.split(',').slice(0, 2).join(',') || 
+             `Location at ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    }
+    
+    return parts.join(', ');
+  } catch (error) {
+    console.warn('Reverse geocoding error:', error);
+    return `Location at ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+  }
+}
+
 // Initialize OpenAI with Replit AI Integrations env vars
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || "dummy-key",
@@ -41,9 +106,13 @@ export async function registerRoutes(
     try {
       const { lat, lng } = api.analysis.analyze.input.parse(req.body);
 
-      // Query real EPA facility data for this location
-      const epaData = await queryNearbyEpaFacilities(lat, lng, 10);
-      console.log(`EPA query for (${lat}, ${lng}): ${epaData.totalFacilities} facilities found`);
+      // Get accurate location name via reverse geocoding (in parallel with EPA query)
+      const [locationName, epaData] = await Promise.all([
+        reverseGeocode(lat, lng),
+        queryNearbyEpaFacilities(lat, lng, 10)
+      ]);
+      
+      console.log(`Location: ${locationName}, EPA query: ${epaData.totalFacilities} facilities found`);
       
       // Build context about nearby facilities
       let facilityContext = "";
@@ -63,12 +132,12 @@ EPA DATA: No regulated industrial facilities found within 10 miles. This is a po
       }
       
       const prompt = `
-Analyze the environmental quality for the location at Latitude: ${lat}, Longitude: ${lng}.
-If you don't know the exact specific street location, estimate based on the general area (city/region).
+Analyze the environmental quality for the location: "${locationName}" (Coordinates: ${lat}, ${lng}).
+This location has been verified via reverse geocoding - use this exact location name in your response.
 ${facilityContext}
 
 Provide a JSON response with the following fields:
-- location: A readable name for the location (e.g., "Central Park, NY")
+- location: Use "${locationName}" or a slightly more descriptive version (e.g., add a neighborhood if known)
 - summary: A 2-3 sentence summary of the environmental vibe. If EPA facilities were found, mention the industrial context.
 - scores: An object with numeric scores (0-100) for:
   - airQuality (100 is best) - factor in nearby major emitters
