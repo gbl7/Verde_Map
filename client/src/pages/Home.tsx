@@ -11,6 +11,7 @@ import { PinDialog } from "@/components/PinDialog";
 import { GamificationPanel } from "@/components/GamificationPanel";
 import { BadgeNotification } from "@/components/BadgeNotification";
 import { EsriLayers } from "@/components/EsriLayers";
+import { EmailSignup } from "@/components/EmailSignup";
 import { useGamification } from "@/hooks/use-gamification";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -470,6 +471,16 @@ export default function Home() {
             >
               <Navigation className="w-4 h-4 md:w-5 md:h-5 text-primary" />
             </Button>
+            
+            {/* Email Signup - inline on desktop/tablet */}
+            <div className="hidden sm:block bg-white/95 backdrop-blur rounded-xl shadow-lg border border-white/50 px-2">
+              <EmailSignup 
+                variant="inline" 
+                lat={selectedLocation?.lat}
+                lng={selectedLocation?.lng}
+                locationName={analyze.data?.location}
+              />
+            </div>
           </div>
         </div>
         

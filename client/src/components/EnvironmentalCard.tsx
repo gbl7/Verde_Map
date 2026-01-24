@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Wind, Droplets, Footprints, Trees, CheckCircle2, MessageCircle, Send, Loader2, Factory, AlertTriangle, ChevronDown, Lightbulb, Info, X, Minimize2, Maximize2 } from "lucide-react";
+import { Wind, Droplets, Footprints, Trees, CheckCircle2, MessageCircle, Send, Loader2, Factory, AlertTriangle, ChevronDown, Lightbulb, Info, X, Minimize2, Maximize2, Share2, Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -154,6 +154,48 @@ export function EnvironmentalCard({ data, lat, lng, isLoading, onClose, isMinimi
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [isAsking, setIsAsking] = useState(false);
+  const [shareStatus, setShareStatus] = useState<"idle" | "copied">("idle");
+
+  const handleShare = async () => {
+    const scores = data.scores;
+    const average = Math.round(Object.values(scores).reduce((a, b) => a + b, 0) / Object.values(scores).length);
+    
+    const shareText = `Check out the environmental vibe of ${data.location}!
+
+Overall Score: ${average}/100
+Air Quality: ${scores.airQuality}/100
+Water Quality: ${scores.waterQuality}/100
+Walkability: ${scores.walkability}/100
+Green Space: ${scores.greenSpace}/100
+Pollution: ${scores.pollution}/100
+
+Explore environmental data at EcoVibe`;
+
+    const shareUrl = window.location.href;
+    
+    // Try native share first (mobile)
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `EcoVibe - ${data.location}`,
+          text: shareText,
+          url: shareUrl,
+        });
+        return;
+      } catch (err) {
+        // User cancelled or share failed, fall back to clipboard
+      }
+    }
+    
+    // Fallback: copy to clipboard
+    try {
+      await navigator.clipboard.writeText(`${shareText}\n\n${shareUrl}`);
+      setShareStatus("copied");
+      setTimeout(() => setShareStatus("idle"), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
 
   const handleAskQuestion = async () => {
     if (!question.trim() || !lat || !lng) return;
@@ -253,6 +295,20 @@ export function EnvironmentalCard({ data, lat, lng, isLoading, onClose, isMinimi
           </div>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleShare}
+            className="h-8 w-8 rounded-lg"
+            data-testid="button-share"
+            title={shareStatus === "copied" ? "Copied!" : "Share"}
+          >
+            {shareStatus === "copied" ? (
+              <Check className="w-4 h-4 text-green-500" />
+            ) : (
+              <Share2 className="w-4 h-4" />
+            )}
+          </Button>
           {onToggleMinimize && (
             <Button 
               variant="ghost" 
