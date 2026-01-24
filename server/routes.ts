@@ -9,11 +9,13 @@ import { queryNearbyEpaFacilities } from "./epaQuery";
 // Reverse geocode coordinates to get accurate location name
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
   try {
+    // Request English language results with accept-language header
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16&addressdetails=1`,
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16&addressdetails=1&accept-language=en`,
       {
         headers: {
-          'User-Agent': 'EcoVibe/1.0 (environmental mapping app)'
+          'User-Agent': 'EcoVibe/1.0 (environmental mapping app)',
+          'Accept-Language': 'en'
         }
       }
     );
