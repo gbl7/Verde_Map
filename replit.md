@@ -113,3 +113,22 @@ EcoVibe includes a gamification system to encourage user engagement with environ
 - **UI Components**: 
   - `GamificationPanel.tsx` - Collapsible stats/progress display
   - `BadgeNotification.tsx` - Badge achievement celebration
+
+## UI/UX Features
+
+### Responsive Design
+- **Mobile-first**: Optimized for 400px+ viewports
+- **Layer toggles**: Collapsible dropdown menu on mobile, inline buttons on desktop (≥1024px)
+- **Search bar**: Compact on mobile (h-9 input), larger on desktop (h-10)
+- **GamificationPanel**: Bottom-left positioning with responsive width (w-48 mobile, w-52 tablet)
+
+### EnvironmentalCard Interactions
+- **Close button**: X icon in header, sets `isCardVisible=false` and resets analysis data
+- **Minimize button**: Collapses to compact view showing only score circle and location name
+- **Expand button**: Click minimized card to restore full view
+- **State management**: `isCardVisible` controls visibility, `isCardMinimized` controls compact/full state
+
+### Map Initialization
+- **Fast fallback**: 3-second timeout to San Francisco if geolocation is slow
+- **Geolocation options**: 5-second timeout, 60-second max age for cached positions
+- Ensures map loads quickly regardless of browser location permissions
