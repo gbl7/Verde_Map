@@ -422,11 +422,11 @@ export default function Home() {
               </AnimatePresence>
             </div>
             
-            {/* Surprise Me - hidden on mobile, icon only on tablet */}
+            {/* Surprise Me - icon only on mobile, full text on desktop */}
             <Button 
               onClick={handleRandomLocation}
               variant="secondary"
-              className="hidden sm:flex rounded-xl shadow-lg bg-white/95 backdrop-blur hover:bg-white text-foreground font-medium border border-white/50 h-9 md:h-10 px-2 md:px-4"
+              className="flex rounded-xl shadow-lg bg-white/95 backdrop-blur hover:bg-white text-foreground font-medium border border-white/50 h-9 md:h-10 px-2 md:px-4"
               data-testid="button-random"
             >
               <Compass className="w-4 h-4 md:mr-2 text-accent" />
