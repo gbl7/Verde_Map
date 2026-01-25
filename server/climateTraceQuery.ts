@@ -326,28 +326,49 @@ export async function queryClimateTraceSourcesForMap(
     }
 
     const sources: ClimateTraceSource[] = [];
+    let coordsFound = 0;
+    let coordsMissing = 0;
     
     for (const feature of features) {
       let assetLat: number | null = null;
       let assetLng: number | null = null;
       
-      if (feature.geometry && feature.geometry.coordinates) {
+      // Try multiple coordinate formats (API uses Centroid.Geometry as [lng, lat] array)
+      if (feature.Centroid && Array.isArray(feature.Centroid.Geometry)) {
+        assetLng = feature.Centroid.Geometry[0];
+        assetLat = feature.Centroid.Geometry[1];
+      } else if (feature.Centroid && feature.Centroid.coordinates) {
+        assetLng = feature.Centroid.coordinates[0];
+        assetLat = feature.Centroid.coordinates[1];
+      } else if (feature.Geometry && feature.Geometry.coordinates) {
+        assetLng = feature.Geometry.coordinates[0];
+        assetLat = feature.Geometry.coordinates[1];
+      } else if (feature.geometry && feature.geometry.coordinates) {
         assetLng = feature.geometry.coordinates[0];
         assetLat = feature.geometry.coordinates[1];
+      } else if (feature.Lat !== undefined && feature.Lon !== undefined) {
+        assetLat = feature.Lat;
+        assetLng = feature.Lon;
+      } else if (feature.lat !== undefined && feature.lon !== undefined) {
+        assetLat = feature.lat;
+        assetLng = feature.lon;
+      } else if (feature.latitude !== undefined && feature.longitude !== undefined) {
+        assetLat = feature.latitude;
+        assetLng = feature.longitude;
       }
       
-      if (assetLat === null || assetLng === null) continue;
+      if (assetLat === null || assetLng === null) {
+        coordsMissing++;
+        continue;
+      }
+      coordsFound++;
       
       const distance = haversineDistance(lat, lng, assetLat, assetLng);
       if (distance > radiusKm) continue;
       
-      const props = feature.properties || feature;
-      
       let emissions: number | null = null;
-      if (props.emissions_quantity) {
-        emissions = props.emissions_quantity;
-      } else if (props.EmissionsSummary && Array.isArray(props.EmissionsSummary)) {
-        const co2Summary = props.EmissionsSummary.find(
+      if (feature.EmissionsSummary && Array.isArray(feature.EmissionsSummary)) {
+        const co2Summary = feature.EmissionsSummary.find(
           (s: any) => s.Gas === "co2e_100yr" || s.Gas === "co2e" || s.Gas === "co2"
         );
         if (co2Summary && co2Summary.EmissionsQuantity) {
@@ -356,10 +377,10 @@ export async function queryClimateTraceSourcesForMap(
       }
 
       sources.push({
-        id: feature.id || props.source_id || Math.random().toString(36).slice(2),
-        name: props.source_name || props.Name || "Unknown Source",
-        sector: props.sector || props.Sector || "other",
-        subsector: props.subsector || props.AssetType || "",
+        id: feature.Id || feature.id || Math.random().toString(36).slice(2),
+        name: feature.Name || feature.name || "Unknown Source",
+        sector: feature.Sector || feature.sector || "other",
+        subsector: feature.AssetType || feature.subsector || "",
         lat: assetLat,
         lng: assetLng,
         emissions: emissions,
@@ -371,7 +392,15 @@ export async function queryClimateTraceSourcesForMap(
 
     sources.sort((a, b) => (b.emissions || 0) - (a.emissions || 0));
     
-    console.log(`Climate TRACE Map: Found ${sources.length} sources within ${radiusKm}km`);
+    console.log(`Climate TRACE Map: ${features.length} features, ${coordsFound} with coords, ${coordsMissing} missing coords, ${sources.length} within ${radiusKm}km`);
+    
+    // Log sample feature for debugging if no coordinates found
+    if (coordsMissing > 0 && coordsFound === 0 && features.length > 0) {
+      console.log("Climate TRACE Map: Sample feature keys:", Object.keys(features[0]));
+      if (features[0].Centroid) {
+        console.log("Climate TRACE Map: Centroid structure:", JSON.stringify(features[0].Centroid));
+      }
+    }
     
     return sources.slice(0, 100);
   } catch (error) {

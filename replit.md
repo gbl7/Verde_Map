@@ -67,8 +67,8 @@ The `/api/analyze` endpoint queries Climate TRACE v6 API for global emissions da
 - **Endpoint**: `https://api.climatetrace.org/v6/assets?countries={ISO3}&year=2022&limit=500`
 - **Data returned**: Emission sources, total CO2e emissions, sector breakdown, top emitters
 - **Country detection**: Uses reverse geocoding to get ISO2 code, then converts to ISO3 using complete mapping
-- **Response parsing**: API returns GeoJSON with `{ assets: [...] }`, each asset containing `Id`, `Name`, `Sector`, `Geometry`, `EmissionsSummary`
-- **Coordinate extraction**: Uses `geometry.coordinates` as [lng, lat], with fallback to `lat`/`lng` fields
+- **Response parsing**: API returns `{ assets: [...] }`, each asset containing `Id`, `Name`, `Sector`, `Centroid`, `EmissionsSummary`
+- **Coordinate extraction**: Uses `Centroid.Geometry` as [lng, lat] array (note: Geometry is the array itself, not an object with coordinates)
 - **Emissions extraction**: From `EmissionsSummary[].Gas === 'co2e_100yr'` → `EmissionsQuantity`
 - **Frontend display**: Emerald-colored section in EnvironmentalCard showing sources count, total emissions (formatted as K/M/B), sector breakdown badges, and top 3 emitters
 
