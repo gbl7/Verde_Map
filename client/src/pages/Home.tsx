@@ -90,6 +90,7 @@ export default function Home() {
     water: true,
     pollution: true,
     satellite: false,
+    climate: false,
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [isPinDialogOpen, setIsPinDialogOpen] = useState(false);
@@ -418,6 +419,15 @@ export default function Home() {
                 >
                   EPA
                 </Button>
+                <Button 
+                  variant={layers.climate ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setLayers(l => ({...l, climate: !l.climate}))}
+                  className="rounded-lg h-8 px-3 text-xs"
+                  data-testid="button-layer-climate"
+                >
+                  CO2
+                </Button>
               </div>
               
               {/* Mobile layer dropdown */}
@@ -462,6 +472,15 @@ export default function Home() {
                         className="rounded-lg h-9 justify-start text-sm"
                       >
                         EPA Facilities
+                      </Button>
+                      <Button 
+                        variant={layers.climate ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setLayers(l => ({...l, climate: !l.climate}))}
+                        className="rounded-lg h-9 justify-start text-sm"
+                        data-testid="button-layer-climate-mobile"
+                      >
+                        CO2 Emissions
                       </Button>
                     </div>
                   </motion.div>

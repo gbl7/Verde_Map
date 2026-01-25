@@ -6,6 +6,7 @@ import { z } from "zod";
 import OpenAI from "openai";
 import { queryNearbyEpaFacilities } from "./epaQuery";
 import { queryAirQuality, aqiToScore, getAqiCategory } from "./waqiQuery";
+import { queryClimateTraceSources, formatEmissions, getSectorLabel } from "./climateTraceQuery";
 
 // Reverse geocode coordinates to get accurate location name
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
@@ -109,14 +110,15 @@ export async function registerRoutes(
     try {
       const { lat, lng } = api.analysis.analyze.input.parse(req.body);
 
-      // Get accurate location name via reverse geocoding (in parallel with EPA and WAQI queries)
-      const [locationName, epaData, aqiData] = await Promise.all([
+      // Get accurate location name via reverse geocoding (in parallel with EPA, WAQI, and Climate TRACE queries)
+      const [locationName, epaData, aqiData, climateData] = await Promise.all([
         reverseGeocode(lat, lng),
         queryNearbyEpaFacilities(lat, lng, 10),
-        queryAirQuality(lat, lng)
+        queryAirQuality(lat, lng),
+        queryClimateTraceSources(lat, lng, 50)
       ]);
       
-      console.log(`Location: ${locationName}, EPA: ${epaData.totalFacilities} facilities, AQI: ${aqiData.aqi}`);
+      console.log(`Location: ${locationName}, EPA: ${epaData.totalFacilities} facilities, AQI: ${aqiData.aqi}, Climate TRACE: ${climateData.sources.length} sources`);
       
       // Build context about nearby facilities and air quality
       let facilityContext = "";
@@ -167,11 +169,36 @@ Use this real data to inform your pollution and air quality scores. More facilit
 EPA DATA: No regulated industrial facilities found within 10 miles. This is a positive indicator for pollution/air quality scores.`;
       }
       
+      // Add Climate TRACE global emissions context
+      let climateContext = "";
+      if (climateData.sources.length > 0) {
+        const sectorSummary = Object.entries(climateData.sectorBreakdown)
+          .sort((a, b) => b[1].emissions - a[1].emissions)
+          .slice(0, 5)
+          .map(([sector, data]) => `${getSectorLabel(sector)}: ${data.count} sources (${formatEmissions(data.emissions)} tonnes CO2e)`)
+          .join("; ");
+        
+        const topSources = climateData.sources
+          .slice(0, 5)
+          .map(s => `${s.name} (${getSectorLabel(s.sector)}, ${s.emissions ? formatEmissions(s.emissions) + ' tonnes CO2e' : 'emissions data pending'})`)
+          .join("; ");
+        
+        climateContext = `
+CLIMATE TRACE GLOBAL EMISSIONS DATA (within 50km):
+- Total emission sources tracked: ${climateData.sources.length}
+- Total CO2e emissions: ${formatEmissions(climateData.totalEmissions)} tonnes/year
+- Sector breakdown: ${sectorSummary}
+- Largest emitters: ${topSources}
+
+This global emissions data covers power plants, factories, and industrial facilities tracked by Climate TRACE satellite monitoring.`;
+      }
+      
       const prompt = `
 Analyze the environmental quality for the location: "${locationName}" (Coordinates: ${lat}, ${lng}).
 This location has been verified via reverse geocoding - use this exact location name in your response.
 ${airQualityContext}
 ${facilityContext}
+${climateContext}
 
 Provide a JSON response with the following fields:
 - location: Use "${locationName}" or a slightly more descriptive version (e.g., add a neighborhood if known)
@@ -233,11 +260,34 @@ Return ONLY valid JSON.
         lastUpdated: aqiData.lastUpdated,
       } : null;
       
+      // Build Climate TRACE context if available
+      const climateTraceContext = climateData.sources.length > 0 ? {
+        sourcesCount: climateData.sources.length,
+        totalEmissions: climateData.totalEmissions,
+        totalEmissionsFormatted: formatEmissions(climateData.totalEmissions),
+        topSources: climateData.sources.slice(0, 5).map(s => ({
+          name: s.name,
+          sector: getSectorLabel(s.sector),
+          emissions: s.emissions,
+          emissionsFormatted: s.emissions ? formatEmissions(s.emissions) : null,
+        })),
+        sectorBreakdown: Object.entries(climateData.sectorBreakdown)
+          .sort((a, b) => b[1].emissions - a[1].emissions)
+          .slice(0, 5)
+          .map(([sector, data]) => ({
+            sector: getSectorLabel(sector),
+            count: data.count,
+            emissions: data.emissions,
+            emissionsFormatted: formatEmissions(data.emissions),
+          })),
+      } : null;
+      
       // Merge AI response with server-computed data
       res.json({
         ...aiData,
         epaContext,
         aqiContext,
+        climateTraceContext,
       });
 
     } catch (error) {

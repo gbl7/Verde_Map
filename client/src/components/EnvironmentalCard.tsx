@@ -145,6 +145,23 @@ interface EnvironmentalCardProps {
       dominantPollutant: string | null;
       lastUpdated: string | null;
     };
+    climateTraceContext?: {
+      sourcesCount: number;
+      totalEmissions: number;
+      totalEmissionsFormatted: string;
+      topSources: {
+        name: string;
+        sector: string;
+        emissions: number | null;
+        emissionsFormatted: string | null;
+      }[];
+      sectorBreakdown: {
+        sector: string;
+        count: number;
+        emissions: number;
+        emissionsFormatted: string;
+      }[];
+    };
   };
   lat?: number;
   lng?: number;
@@ -447,6 +464,51 @@ Explore environmental data at Verde`;
                       {industry}
                     </Badge>
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Climate TRACE Global Emissions Data */}
+          {data.climateTraceContext && data.climateTraceContext.sourcesCount > 0 && (
+            <div className="mt-4 p-3 rounded-lg bg-emerald-50 border border-emerald-200" data-testid="section-climate-trace">
+              <div className="flex items-center gap-2 mb-2">
+                <Factory className="w-4 h-4 text-emerald-600" />
+                <span className="text-sm font-medium text-emerald-800">Climate TRACE Emissions (50km)</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <div className="text-center p-2 bg-white rounded border border-emerald-100">
+                  <div className="text-lg font-bold text-foreground">{data.climateTraceContext.sourcesCount}</div>
+                  <div className="text-xs text-muted-foreground">Emission Sources</div>
+                </div>
+                <div className="text-center p-2 bg-white rounded border border-emerald-100">
+                  <div className="text-lg font-bold text-foreground">{data.climateTraceContext.totalEmissionsFormatted}</div>
+                  <div className="text-xs text-muted-foreground">tonnes CO2e/yr</div>
+                </div>
+              </div>
+              {data.climateTraceContext.sectorBreakdown.length > 0 && (
+                <div className="mb-2">
+                  <div className="text-xs text-emerald-700 font-medium mb-1">By Sector:</div>
+                  <div className="flex flex-wrap gap-1">
+                    {data.climateTraceContext.sectorBreakdown.map((sector, i) => (
+                      <Badge key={i} variant="secondary" className="text-xs bg-emerald-100 text-emerald-800 border-emerald-200">
+                        {sector.sector}: {sector.emissionsFormatted}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {data.climateTraceContext.topSources.length > 0 && (
+                <div>
+                  <div className="text-xs text-emerald-700 font-medium mb-1">Top Emitters:</div>
+                  <div className="space-y-1">
+                    {data.climateTraceContext.topSources.slice(0, 3).map((source, i) => (
+                      <div key={i} className="text-xs text-muted-foreground flex justify-between">
+                        <span className="truncate flex-1" title={source.name}>{source.name}</span>
+                        <span className="ml-2 text-emerald-700 font-medium">{source.emissionsFormatted || 'N/A'}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
