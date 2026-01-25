@@ -74,12 +74,13 @@ The `/api/analyze` endpoint queries Climate TRACE v6 API for global emissions da
 
 ### Emissions Sources Map Layer
 When the CO2 layer is toggled on, emission point sources are displayed on the map:
-- **API Endpoint**: `GET /api/emissions-sources?lat={lat}&lng={lng}&radius={km}`
-- **Query function**: `queryClimateTraceSourcesForMap()` filters by haversine distance within radius
+- **API Endpoint**: `GET /api/emissions-sources?lat={lat}&lng={lng}`
+- **Query function**: `queryClimateTraceSourcesForMap()` queries top 10 emitting countries in parallel
+- **Global coverage**: Fetches data from CHN, USA, IND, RUS, JPN, DEU, IRN, SAU, IDN, KOR
 - **Map display**: CircleMarker components with sector-based colors (power=purple, oil&gas=orange, manufacturing=cyan, etc.)
 - **Size scaling**: Circle radius uses `log10(emissions) * 3` (min 5px, max 20px) for visual hierarchy
 - **Popup content**: Source name, sector with color indicator, emissions in tonnes CO2e/yr
-- **Default radius**: 150km from current map center
+- **Returns**: Top 200 emitters globally, sorted by emissions
 
 ### Key Design Decisions
 

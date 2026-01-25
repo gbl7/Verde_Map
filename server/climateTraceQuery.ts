@@ -274,56 +274,52 @@ export function getSectorLabel(sector: string): string {
   return SECTOR_LABELS[sector] || sector.charAt(0).toUpperCase() + sector.slice(1).replace(/-/g, ' ');
 }
 
+// Top emitting countries for global data display
+const TOP_EMITTING_COUNTRIES = [
+  'CHN', 'USA', 'IND', 'RUS', 'JPN', 'DEU', 'IRN', 'SAU', 'IDN', 'KOR',
+  'CAN', 'MEX', 'BRA', 'ZAF', 'TUR', 'AUS', 'GBR', 'POL', 'THA', 'ITA',
+  'FRA', 'VNM', 'EGY', 'MYS', 'ARE', 'PAK', 'TWN', 'ARG', 'NGA', 'KAZ'
+];
+
 export async function queryClimateTraceSourcesForMap(
   lat: number,
   lng: number,
   radiusKm: number = 100
 ): Promise<ClimateTraceSource[]> {
   try {
-    const countryCode = await getCountryCode(lat, lng);
-    if (!countryCode) {
-      console.log("Climate TRACE Map: Could not determine country code for", lat, lng);
-      return [];
-    }
-
-    const iso3 = iso2ToIso3(countryCode);
-    if (iso3.length !== 3) {
-      console.log("Climate TRACE Map: Invalid ISO3 code:", iso3);
-      return [];
-    }
-
-    const params = new URLSearchParams({
-      countries: iso3,
-      year: "2022",
-      limit: "200",
-    });
-
-    const url = `https://api.climatetrace.org/v6/assets?${params.toString()}`;
-    console.log("Climate TRACE Map query:", url);
+    // Query multiple top-emitting countries in parallel for global coverage
+    const countriesToQuery = TOP_EMITTING_COUNTRIES.slice(0, 10); // Query top 10 emitters
     
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Verde/1.0 (environmental mapping app)',
-        'Accept': 'application/json',
+    console.log("Climate TRACE Map: Querying global emissions from", countriesToQuery.length, "countries");
+    
+    const fetchPromises = countriesToQuery.map(async (iso3) => {
+      try {
+        const params = new URLSearchParams({
+          countries: iso3,
+          year: "2022",
+          limit: "50", // Get top 50 from each country
+        });
+        
+        const url = `https://api.climatetrace.org/v6/assets?${params.toString()}`;
+        
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Verde/1.0 (environmental mapping app)',
+            'Accept': 'application/json',
+          }
+        });
+        
+        if (!response.ok) return [];
+        
+        const data = await response.json();
+        return data.assets || data || [];
+      } catch {
+        return [];
       }
     });
     
-    if (!response.ok) {
-      console.warn("Climate TRACE Map API error:", response.status);
-      return [];
-    }
-
-    const data = await response.json();
-    
-    let features: any[] = [];
-    if (Array.isArray(data)) {
-      features = data;
-    } else if (data && Array.isArray(data.assets)) {
-      features = data.assets;
-    } else {
-      console.log("Climate TRACE Map: Unexpected response format");
-      return [];
-    }
+    const allResults = await Promise.all(fetchPromises);
+    let features: any[] = allResults.flat();
 
     const sources: ClimateTraceSource[] = [];
     let coordsFound = 0;
@@ -363,9 +359,7 @@ export async function queryClimateTraceSourcesForMap(
       }
       coordsFound++;
       
-      const distance = haversineDistance(lat, lng, assetLat, assetLng);
-      if (distance > radiusKm) continue;
-      
+      // No distance filtering - show global data
       let emissions: number | null = null;
       if (feature.EmissionsSummary && Array.isArray(feature.EmissionsSummary)) {
         const co2Summary = feature.EmissionsSummary.find(
@@ -386,13 +380,13 @@ export async function queryClimateTraceSourcesForMap(
         emissions: emissions,
         emissionsFormatted: emissions ? formatEmissions(emissions) : undefined,
         emissionsUnit: "tonnes CO2e/yr",
-        country: iso3,
+        country: feature.Country || "Unknown",
       });
     }
 
     sources.sort((a, b) => (b.emissions || 0) - (a.emissions || 0));
     
-    console.log(`Climate TRACE Map: ${features.length} features, ${coordsFound} with coords, ${coordsMissing} missing coords, ${sources.length} within ${radiusKm}km`);
+    console.log(`Climate TRACE Map: ${features.length} features, ${coordsFound} with coords, ${coordsMissing} missing coords, ${sources.length} global sources`);
     
     // Log sample feature for debugging if no coordinates found
     if (coordsMissing > 0 && coordsFound === 0 && features.length > 0) {
@@ -402,7 +396,8 @@ export async function queryClimateTraceSourcesForMap(
       }
     }
     
-    return sources.slice(0, 100);
+    // Return top 200 emitters globally
+    return sources.slice(0, 200);
   } catch (error) {
     console.error("Climate TRACE Map query failed:", error);
     return [];
