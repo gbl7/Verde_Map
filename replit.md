@@ -61,6 +61,17 @@ The `/api/analyze` endpoint queries the EPA ECHO ArcGIS service for regulated fa
 - This real data is passed to the AI to generate more accurate environmental scores
 - The frontend displays EPA context in the EnvironmentalCard when facilities are found
 
+### Climate TRACE Integration
+The `/api/analyze` endpoint queries Climate TRACE v6 API for global emissions data:
+- **Utility**: `server/climateTraceQuery.ts` handles the API query
+- **Endpoint**: `https://api.climatetrace.org/v6/assets?countries={ISO3}&year=2022&limit=500`
+- **Data returned**: Emission sources, total CO2e emissions, sector breakdown, top emitters
+- **Country detection**: Uses reverse geocoding to get ISO2 code, then converts to ISO3 using complete mapping
+- **Response parsing**: API returns `{ assets: [...] }` with each asset containing `Id`, `Name`, `Sector`, `EmissionsSummary`
+- **Emissions extraction**: From `EmissionsSummary[].Gas === 'co2e_100yr'` → `EmissionsQuantity`
+- **Frontend display**: Emerald-colored section in EnvironmentalCard showing sources count, total emissions (formatted as K/M/B), sector breakdown badges, and top 3 emitters
+- **Note**: Climate TRACE provides country-level asset data, so the CO2 toggle in layer controls is a UI state indicator rather than a map overlay
+
 ### Key Design Decisions
 
 1. **Shared Route Contracts**: The `shared/routes.ts` file defines API contracts with input/output schemas, enabling type-safe API calls from the frontend and validation on the backend.

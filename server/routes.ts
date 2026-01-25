@@ -184,13 +184,13 @@ EPA DATA: No regulated industrial facilities found within 10 miles. This is a po
           .join("; ");
         
         climateContext = `
-CLIMATE TRACE GLOBAL EMISSIONS DATA (within 50km):
-- Total emission sources tracked: ${climateData.sources.length}
+CLIMATE TRACE NATIONAL EMISSIONS DATA (for this country):
+- Top emission sources tracked: ${climateData.sources.length}
 - Total CO2e emissions: ${formatEmissions(climateData.totalEmissions)} tonnes/year
 - Sector breakdown: ${sectorSummary}
 - Largest emitters: ${topSources}
 
-This global emissions data covers power plants, factories, and industrial facilities tracked by Climate TRACE satellite monitoring.`;
+This national emissions data covers power plants, factories, and industrial facilities tracked by Climate TRACE satellite monitoring. These are country-level statistics that provide context for the broader emissions landscape.`;
       }
       
       const prompt = `

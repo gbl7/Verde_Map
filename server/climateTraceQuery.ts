@@ -1,10 +1,10 @@
 interface ClimateTraceSource {
-  id: number;
+  id: string | number;
   name: string;
   sector: string;
   subsector: string;
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
   emissions: number | null;
   emissionsUnit: string;
   country: string;
@@ -17,39 +17,61 @@ interface ClimateTraceResult {
 }
 
 const SECTOR_LABELS: Record<string, string> = {
-  "power": "Power Generation",
-  "transportation": "Transportation",
+  "power": "Power",
+  "electricity-generation": "Power",
+  "transportation": "Transport",
+  "road-transportation": "Road Transport",
+  "aviation": "Aviation",
+  "shipping": "Shipping",
   "buildings": "Buildings",
-  "fossil-fuel-operations": "Fossil Fuel Operations",
+  "fossil-fuel-operations": "Fossil Fuels",
+  "oil-and-gas-production-and-transport": "Oil & Gas",
+  "oil-and-gas-production": "Oil & Gas",
+  "oil-and-gas-refining": "Refining",
+  "coal-mining": "Coal Mining",
   "manufacturing": "Manufacturing",
-  "mineral-extraction": "Mining & Extraction",
+  "steel": "Steel",
+  "cement": "Cement",
+  "aluminum": "Aluminum",
+  "chemicals": "Chemicals",
+  "mineral-extraction": "Mining",
   "agriculture": "Agriculture",
-  "waste": "Waste Management",
-  "forestry-and-land-use": "Forestry & Land Use",
+  "livestock": "Livestock",
+  "cropland": "Cropland",
+  "waste": "Waste",
+  "solid-waste": "Solid Waste",
+  "wastewater": "Wastewater",
+  "forestry-and-land-use": "Forestry",
+  "forest-land-fires": "Forest Fires",
+  "other": "Other",
 };
 
 export async function queryClimateTraceSources(
   lat: number,
   lng: number,
-  radiusKm: number = 50
+  radiusKm: number = 100
 ): Promise<ClimateTraceResult> {
   try {
     const countryCode = await getCountryCode(lat, lng);
     if (!countryCode) {
-      console.log("Climate TRACE: Could not determine country code");
+      console.log("Climate TRACE: Could not determine country code for", lat, lng);
       return emptyResult();
     }
 
-    const bounds = calculateBounds(lat, lng, radiusKm);
-    
+    const iso3 = iso2ToIso3(countryCode);
+    if (iso3.length !== 3) {
+      console.log("Climate TRACE: Invalid ISO3 code:", iso3, "from", countryCode);
+      return emptyResult();
+    }
+
     const params = new URLSearchParams({
-      countries: countryCode,
-      year: "2023",
-      limit: "100",
+      countries: iso3,
+      year: "2022",
+      limit: "500",
     });
 
     const url = `https://api.climatetrace.org/v6/assets?${params.toString()}`;
-    console.log("Climate TRACE query for:", countryCode, "near", lat, lng);
+    console.log("Climate TRACE query:", url);
     
     const response = await fetch(url, {
       headers: {
@@ -65,48 +87,57 @@ export async function queryClimateTraceSources(
 
     const data = await response.json();
     
-    if (!Array.isArray(data) || data.length === 0) {
-      console.log("Climate TRACE: No sources found");
+    let assets: any[] = [];
+    if (data && Array.isArray(data.assets)) {
+      assets = data.assets;
+    } else if (Array.isArray(data)) {
+      assets = data;
+    } else {
+      console.log("Climate TRACE: Unexpected response format, keys:", Object.keys(data || {}));
       return emptyResult();
     }
+
+    if (assets.length === 0) {
+      console.log("Climate TRACE: No assets found for", iso3);
+      return emptyResult();
+    }
+
+    console.log("Climate TRACE: Processing", assets.length, "assets for", iso3);
 
     const sources: ClimateTraceSource[] = [];
     const sectorBreakdown: Record<string, { count: number; emissions: number }> = {};
     let totalEmissions = 0;
 
-    for (const feature of data) {
-      if (feature.geometry?.type !== "Point" || !feature.geometry.coordinates) {
-        continue;
-      }
-
-      const [sourceLng, sourceLat] = feature.geometry.coordinates;
-      const distance = calculateDistance(lat, lng, sourceLat, sourceLng);
+    for (const asset of assets) {
+      const sector = asset.Sector || asset.sector || "other";
       
-      if (distance > radiusKm) {
-        continue;
+      let emissions: number | null = null;
+      if (asset.EmissionsSummary && Array.isArray(asset.EmissionsSummary)) {
+        const co2Summary = asset.EmissionsSummary.find(
+          (s: any) => s.Gas === "co2e_100yr" || s.Gas === "co2e" || s.Gas === "co2"
+        );
+        if (co2Summary && co2Summary.EmissionsQuantity) {
+          emissions = co2Summary.EmissionsQuantity;
+        }
       }
-
-      const props = feature.properties || {};
-      const sector = props.sector || "other";
-      const emissions = props.emissions_quantity || null;
 
       sources.push({
-        id: feature.id,
-        name: props.source_name || props.name || "Unknown Source",
+        id: asset.Id || asset.id || Math.random().toString(36).slice(2),
+        name: asset.Name || asset.name || "Unknown Source",
         sector: sector,
-        subsector: props.subsector || "",
-        lat: sourceLat,
-        lng: sourceLng,
+        subsector: asset.AssetType || "",
+        lat: null,
+        lng: null,
         emissions: emissions,
-        emissionsUnit: props.emissions_quantity_units || "tonnes CO2e",
-        country: countryCode,
+        emissionsUnit: "tonnes CO2e/yr",
+        country: iso3,
       });
 
       if (!sectorBreakdown[sector]) {
         sectorBreakdown[sector] = { count: 0, emissions: 0 };
       }
       sectorBreakdown[sector].count++;
-      if (emissions) {
+      if (emissions && typeof emissions === 'number') {
         sectorBreakdown[sector].emissions += emissions;
         totalEmissions += emissions;
       }
@@ -114,7 +145,7 @@ export async function queryClimateTraceSources(
 
     sources.sort((a, b) => (b.emissions || 0) - (a.emissions || 0));
 
-    console.log(`Climate TRACE: Found ${sources.length} sources within ${radiusKm}km`);
+    console.log(`Climate TRACE: Found ${sources.length} sources in ${iso3}, total emissions: ${formatEmissions(totalEmissions)}`);
     
     return {
       sources: sources.slice(0, 20),
@@ -144,7 +175,7 @@ async function getCountryCode(lat: number, lng: number): Promise<string | null> 
     const countryCode = data.address?.country_code?.toUpperCase();
     
     if (countryCode && countryCode.length === 2) {
-      return iso2ToIso3(countryCode);
+      return countryCode;
     }
     return null;
   } catch {
@@ -154,45 +185,49 @@ async function getCountryCode(lat: number, lng: number): Promise<string | null> 
 
 function iso2ToIso3(iso2: string): string {
   const mapping: Record<string, string> = {
-    "US": "USA", "CA": "CAN", "MX": "MEX", "GB": "GBR", "FR": "FRA",
-    "DE": "DEU", "IT": "ITA", "ES": "ESP", "JP": "JPN", "CN": "CHN",
-    "IN": "IND", "BR": "BRA", "AU": "AUS", "RU": "RUS", "KR": "KOR",
-    "ID": "IDN", "TR": "TUR", "SA": "SAU", "ZA": "ZAF", "AR": "ARG",
-    "PL": "POL", "NL": "NLD", "BE": "BEL", "SE": "SWE", "CH": "CHE",
-    "AT": "AUT", "NO": "NOR", "DK": "DNK", "FI": "FIN", "IE": "IRL",
-    "PT": "PRT", "GR": "GRC", "CZ": "CZE", "HU": "HUN", "IL": "ISR",
-    "AE": "ARE", "SG": "SGP", "MY": "MYS", "TH": "THA", "VN": "VNM",
-    "PH": "PHL", "EG": "EGY", "NG": "NGA", "KE": "KEN", "CL": "CHL",
-    "CO": "COL", "PE": "PER", "VE": "VEN", "NZ": "NZL", "PK": "PAK",
-    "BD": "BGD", "UA": "UKR", "RO": "ROU", "CU": "CUB", "EC": "ECU",
+    "AF": "AFG", "AL": "ALB", "DZ": "DZA", "AS": "ASM", "AD": "AND",
+    "AO": "AGO", "AI": "AIA", "AQ": "ATA", "AG": "ATG", "AR": "ARG",
+    "AM": "ARM", "AW": "ABW", "AU": "AUS", "AT": "AUT", "AZ": "AZE",
+    "BS": "BHS", "BH": "BHR", "BD": "BGD", "BB": "BRB", "BY": "BLR",
+    "BE": "BEL", "BZ": "BLZ", "BJ": "BEN", "BM": "BMU", "BT": "BTN",
+    "BO": "BOL", "BA": "BIH", "BW": "BWA", "BR": "BRA", "BN": "BRN",
+    "BG": "BGR", "BF": "BFA", "BI": "BDI", "CV": "CPV", "KH": "KHM",
+    "CM": "CMR", "CA": "CAN", "KY": "CYM", "CF": "CAF", "TD": "TCD",
+    "CL": "CHL", "CN": "CHN", "CO": "COL", "KM": "COM", "CG": "COG",
+    "CD": "COD", "CR": "CRI", "CI": "CIV", "HR": "HRV", "CU": "CUB",
+    "CY": "CYP", "CZ": "CZE", "DK": "DNK", "DJ": "DJI", "DM": "DMA",
+    "DO": "DOM", "EC": "ECU", "EG": "EGY", "SV": "SLV", "GQ": "GNQ",
+    "ER": "ERI", "EE": "EST", "SZ": "SWZ", "ET": "ETH", "FJ": "FJI",
+    "FI": "FIN", "FR": "FRA", "GA": "GAB", "GM": "GMB", "GE": "GEO",
+    "DE": "DEU", "GH": "GHA", "GR": "GRC", "GL": "GRL", "GD": "GRD",
+    "GT": "GTM", "GN": "GIN", "GW": "GNB", "GY": "GUY", "HT": "HTI",
+    "HN": "HND", "HK": "HKG", "HU": "HUN", "IS": "ISL", "IN": "IND",
+    "ID": "IDN", "IR": "IRN", "IQ": "IRQ", "IE": "IRL", "IL": "ISR",
+    "IT": "ITA", "JM": "JAM", "JP": "JPN", "JO": "JOR", "KZ": "KAZ",
+    "KE": "KEN", "KI": "KIR", "KP": "PRK", "KR": "KOR", "KW": "KWT",
+    "KG": "KGZ", "LA": "LAO", "LV": "LVA", "LB": "LBN", "LS": "LSO",
+    "LR": "LBR", "LY": "LBY", "LI": "LIE", "LT": "LTU", "LU": "LUX",
+    "MO": "MAC", "MG": "MDG", "MW": "MWI", "MY": "MYS", "MV": "MDV",
+    "ML": "MLI", "MT": "MLT", "MH": "MHL", "MR": "MRT", "MU": "MUS",
+    "MX": "MEX", "FM": "FSM", "MD": "MDA", "MC": "MCO", "MN": "MNG",
+    "ME": "MNE", "MA": "MAR", "MZ": "MOZ", "MM": "MMR", "NA": "NAM",
+    "NR": "NRU", "NP": "NPL", "NL": "NLD", "NZ": "NZL", "NI": "NIC",
+    "NE": "NER", "NG": "NGA", "MK": "MKD", "NO": "NOR", "OM": "OMN",
+    "PK": "PAK", "PW": "PLW", "PS": "PSE", "PA": "PAN", "PG": "PNG",
+    "PY": "PRY", "PE": "PER", "PH": "PHL", "PL": "POL", "PT": "PRT",
+    "PR": "PRI", "QA": "QAT", "RO": "ROU", "RU": "RUS", "RW": "RWA",
+    "KN": "KNA", "LC": "LCA", "VC": "VCT", "WS": "WSM", "SM": "SMR",
+    "ST": "STP", "SA": "SAU", "SN": "SEN", "RS": "SRB", "SC": "SYC",
+    "SL": "SLE", "SG": "SGP", "SK": "SVK", "SI": "SVN", "SB": "SLB",
+    "SO": "SOM", "ZA": "ZAF", "SS": "SSD", "ES": "ESP", "LK": "LKA",
+    "SD": "SDN", "SR": "SUR", "SE": "SWE", "CH": "CHE", "SY": "SYR",
+    "TW": "TWN", "TJ": "TJK", "TZ": "TZA", "TH": "THA", "TL": "TLS",
+    "TG": "TGO", "TO": "TON", "TT": "TTO", "TN": "TUN", "TR": "TUR",
+    "TM": "TKM", "TV": "TUV", "UG": "UGA", "UA": "UKR", "AE": "ARE",
+    "GB": "GBR", "US": "USA", "UY": "URY", "UZ": "UZB", "VU": "VUT",
+    "VE": "VEN", "VN": "VNM", "YE": "YEM", "ZM": "ZMB", "ZW": "ZWE",
   };
   return mapping[iso2] || iso2;
-}
-
-function calculateBounds(lat: number, lng: number, radiusKm: number) {
-  const latDelta = radiusKm / 111;
-  const lngDelta = radiusKm / (111 * Math.cos(lat * Math.PI / 180));
-  return {
-    minLat: lat - latDelta,
-    maxLat: lat + latDelta,
-    minLng: lng - lngDelta,
-    maxLng: lng + lngDelta,
-  };
-}
-
-function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-function toRad(deg: number): number {
-  return deg * (Math.PI / 180);
 }
 
 function emptyResult(): ClimateTraceResult {
@@ -204,7 +239,9 @@ function emptyResult(): ClimateTraceResult {
 }
 
 export function formatEmissions(tonnes: number): string {
-  if (tonnes >= 1_000_000) {
+  if (tonnes >= 1_000_000_000) {
+    return `${(tonnes / 1_000_000_000).toFixed(1)}B`;
+  } else if (tonnes >= 1_000_000) {
     return `${(tonnes / 1_000_000).toFixed(1)}M`;
   } else if (tonnes >= 1_000) {
     return `${(tonnes / 1_000).toFixed(1)}K`;
