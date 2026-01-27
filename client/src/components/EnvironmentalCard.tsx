@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Wind, Droplets, Footprints, Trees, CheckCircle2, MessageCircle, Send, Loader2, Factory, AlertTriangle, ChevronDown, Lightbulb, Info, X, Minimize2, Maximize2, Share2, Check, Copy } from "lucide-react";
+import { Wind, Droplets, Footprints, Trees, CheckCircle2, MessageCircle, Send, Loader2, Factory, AlertTriangle, ChevronDown, Lightbulb, Info, X, Minimize2, Maximize2, Share2, Check, Copy, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -161,6 +161,21 @@ interface EnvironmentalCardProps {
         emissions: number;
         emissionsFormatted: string;
       }[];
+    };
+    landCoverContext?: {
+      classes: {
+        classId: number;
+        name: string;
+        color: string;
+        count: number;
+        percentage: number;
+      }[];
+      dominantClass: string;
+      treePercentage: number;
+      builtPercentage: number;
+      waterPercentage: number;
+      cropPercentage: number;
+      vegetationPercentage: number;
     };
   };
   lat?: number;
@@ -599,6 +614,53 @@ Explore environmental data at Verde`;
                 </div>
               </div>
             )}
+          </div>
+        )}
+        
+        {/* Land Cover Data from Sentinel 2 */}
+        {data.landCoverContext && data.landCoverContext.classes.length > 0 && (
+          <div className="mt-4 p-3 rounded-lg bg-sky-50 border border-sky-200" data-testid="section-land-cover">
+            <div className="flex items-center gap-2 mb-2">
+              <Map className="w-4 h-4 text-sky-600" />
+              <span className="text-sm font-medium text-sky-800">Land Use (1km radius)</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              <div className="text-center p-2 bg-white rounded border border-sky-100">
+                <div className="text-lg font-bold text-green-600">{data.landCoverContext.vegetationPercentage}%</div>
+                <div className="text-xs text-muted-foreground">Vegetation</div>
+              </div>
+              <div className="text-center p-2 bg-white rounded border border-sky-100">
+                <div className="text-lg font-bold text-red-600">{data.landCoverContext.builtPercentage}%</div>
+                <div className="text-xs text-muted-foreground">Built Area</div>
+              </div>
+              <div className="text-center p-2 bg-white rounded border border-sky-100">
+                <div className="text-lg font-bold text-blue-600">{data.landCoverContext.waterPercentage}%</div>
+                <div className="text-xs text-muted-foreground">Water</div>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              {data.landCoverContext.classes.slice(0, 5).map((cls, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div 
+                    className="w-3 h-3 rounded-sm flex-shrink-0" 
+                    style={{ backgroundColor: cls.color }}
+                  />
+                  <span className="text-xs text-foreground flex-1">{cls.name}</span>
+                  <div className="flex items-center gap-1">
+                    <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full rounded-full" 
+                        style={{ width: `${Math.min(cls.percentage, 100)}%`, backgroundColor: cls.color }}
+                      />
+                    </div>
+                    <span className="text-xs font-medium text-muted-foreground w-10 text-right">{cls.percentage}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 text-xs text-sky-600 text-center">
+              Dominant: {data.landCoverContext.dominantClass}
+            </div>
           </div>
         )}
         
