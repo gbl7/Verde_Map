@@ -87,7 +87,12 @@ export async function queryNearbyEpaFacilities(
     const url = `${baseUrl}?${params.toString()}`;
     console.log("EPA query for:", lat, lng, "radius:", radiusMiles, "mi");
     
-    const response = await fetch(url);
+    // Add 15 second timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
       console.error("EPA API error:", response.status);
@@ -158,8 +163,12 @@ export async function queryNearbyEpaFacilities(
       nearbyFacilities: facilities.slice(0, 10),
       industryBreakdown,
     };
-  } catch (error) {
-    console.error("EPA query failed:", error);
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      console.log("EPA query timed out after 15 seconds");
+    } else {
+      console.error("EPA query failed:", error);
+    }
     return emptyResult();
   }
 }
