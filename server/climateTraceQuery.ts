@@ -297,7 +297,7 @@ export async function queryClimateTraceSourcesForMap(
         const params = new URLSearchParams({
           countries: iso3,
           year: "2022",
-          limit: "50", // Get top 50 from each country
+          limit: "200", // Get top 200 from each country for more coverage
         });
         
         const url = `https://api.climatetrace.org/v6/assets?${params.toString()}`;
@@ -396,8 +396,8 @@ export async function queryClimateTraceSourcesForMap(
       }
     }
     
-    // Return top 200 emitters globally
-    return sources.slice(0, 200);
+    // Return top 500 emitters globally for better map coverage
+    return sources.slice(0, 500);
   } catch (error) {
     console.error("Climate TRACE Map query failed:", error);
     return [];
