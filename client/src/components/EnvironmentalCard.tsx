@@ -12,6 +12,24 @@ interface ScoreDetail {
   tips?: string[];
 }
 
+interface ClimateTraceData {
+  sourcesCount: number;
+  totalEmissions: number;
+  totalEmissionsFormatted: string;
+  topSources: {
+    name: string;
+    sector: string;
+    emissions: number | null;
+    emissionsFormatted: string | null;
+  }[];
+  sectorBreakdown: {
+    sector: string;
+    count: number;
+    emissions: number;
+    emissionsFormatted: string;
+  }[];
+}
+
 interface ScoreProps {
   label: string;
   value: number;
@@ -19,9 +37,10 @@ interface ScoreProps {
   colorClass: string;
   detail?: ScoreDetail;
   testId?: string;
+  climateTraceData?: ClimateTraceData | null;
 }
 
-function ScoreRow({ label, value, icon: Icon, colorClass, detail, testId }: ScoreProps) {
+function ScoreRow({ label, value, icon: Icon, colorClass, detail, testId, climateTraceData }: ScoreProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   
   let statusColor = "bg-red-500";
@@ -29,12 +48,14 @@ function ScoreRow({ label, value, icon: Icon, colorClass, detail, testId }: Scor
   else if (value >= 40) statusColor = "bg-yellow-500";
 
   const hasDetails = detail && (detail.factors?.length > 0 || detail.tips?.length);
+  const hasClimateTrace = climateTraceData && climateTraceData.sourcesCount > 0;
+  const isExpandable = hasDetails || hasClimateTrace;
 
   return (
     <div className="rounded-xl bg-secondary/30 transition-colors overflow-hidden">
       <button
-        onClick={() => hasDetails && setIsExpanded(!isExpanded)}
-        className={`w-full p-3 text-left hover:bg-secondary/60 transition-colors ${hasDetails ? 'cursor-pointer' : 'cursor-default'}`}
+        onClick={() => isExpandable && setIsExpanded(!isExpanded)}
+        className={`w-full p-3 text-left hover:bg-secondary/60 transition-colors ${isExpandable ? 'cursor-pointer' : 'cursor-default'}`}
         data-testid={testId}
       >
         <div className="flex items-center gap-3 mb-2">
@@ -46,7 +67,7 @@ function ScoreRow({ label, value, icon: Icon, colorClass, detail, testId }: Scor
               <span className="font-semibold text-sm text-foreground/80">{label}</span>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-foreground">{value}/100</span>
-                {hasDetails && (
+                {isExpandable && (
                   <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                 )}
               </div>
@@ -64,7 +85,7 @@ function ScoreRow({ label, value, icon: Icon, colorClass, detail, testId }: Scor
       </button>
       
       <AnimatePresence>
-        {isExpanded && hasDetails && (
+        {isExpanded && isExpandable && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
@@ -73,7 +94,7 @@ function ScoreRow({ label, value, icon: Icon, colorClass, detail, testId }: Scor
             className="overflow-hidden"
           >
             <div className="px-3 pb-3 space-y-2" data-testid={`${testId}-details`}>
-              {detail.factors && detail.factors.length > 0 && (
+              {detail && detail.factors && detail.factors.length > 0 && (
                 <div className="ml-11 p-2 rounded-lg bg-white/50 border border-secondary">
                   <div className="flex items-center gap-1 mb-1">
                     <Info className="w-3 h-3 text-muted-foreground" />
@@ -90,7 +111,7 @@ function ScoreRow({ label, value, icon: Icon, colorClass, detail, testId }: Scor
                 </div>
               )}
               
-              {detail.tips && detail.tips.length > 0 && (
+              {detail && detail.tips && detail.tips.length > 0 && (
                 <div className="ml-11 p-2 rounded-lg bg-amber-50 border border-amber-200">
                   <div className="flex items-center gap-1 mb-1">
                     <Lightbulb className="w-3 h-3 text-amber-600" />
@@ -104,6 +125,35 @@ function ScoreRow({ label, value, icon: Icon, colorClass, detail, testId }: Scor
                       </li>
                     ))}
                   </ul>
+                </div>
+              )}
+              
+              {/* Climate TRACE Emissions Data for Cleanliness */}
+              {hasClimateTrace && (
+                <div className="ml-11 p-2 rounded-lg bg-emerald-50 border border-emerald-200" data-testid="climate-trace-detail">
+                  <div className="flex items-center gap-1 mb-2">
+                    <Factory className="w-3 h-3 text-emerald-600" />
+                    <span className="text-xs font-medium text-emerald-700">National Emissions Data</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    <div className="text-center p-1.5 bg-white rounded border border-emerald-100">
+                      <div className="text-sm font-bold text-foreground">{climateTraceData.sourcesCount}</div>
+                      <div className="text-xs text-muted-foreground">Sources</div>
+                    </div>
+                    <div className="text-center p-1.5 bg-white rounded border border-emerald-100">
+                      <div className="text-sm font-bold text-foreground">{climateTraceData.totalEmissionsFormatted}</div>
+                      <div className="text-xs text-muted-foreground">CO2e/yr</div>
+                    </div>
+                  </div>
+                  {climateTraceData.sectorBreakdown.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {climateTraceData.sectorBreakdown.slice(0, 3).map((sector, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs bg-emerald-100 text-emerald-800 border-emerald-200">
+                          {sector.sector}: {sector.emissionsFormatted}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -389,6 +439,63 @@ Explore environmental data at Verde`;
             {data.summary}
           </p>
           
+          {/* Real-time AQI Data - Prominent at top */}
+          {data.aqiContext ? (
+            <div className="mt-4 p-3 rounded-lg bg-sky-50 border border-sky-200" data-testid="section-aqi-context">
+              <div className="flex items-center gap-2 mb-2">
+                <Wind className="w-4 h-4 text-sky-600" />
+                <span className="text-sm font-medium text-sky-800">Real-time Air Quality</span>
+              </div>
+              <div className="flex items-center gap-3 mb-2">
+                <div 
+                  className={`text-center p-2 px-4 rounded border ${
+                    data.aqiContext.aqi <= 50 ? 'bg-green-100 border-green-200' :
+                    data.aqiContext.aqi <= 100 ? 'bg-yellow-100 border-yellow-200' :
+                    data.aqiContext.aqi <= 150 ? 'bg-orange-100 border-orange-200' :
+                    'bg-red-100 border-red-200'
+                  }`}
+                  data-testid="badge-aqi-value"
+                >
+                  <div className={`text-2xl font-bold ${
+                    data.aqiContext.aqi <= 50 ? 'text-green-700' :
+                    data.aqiContext.aqi <= 100 ? 'text-yellow-700' :
+                    data.aqiContext.aqi <= 150 ? 'text-orange-700' :
+                    'text-red-700'
+                  }`}>{data.aqiContext.aqi}</div>
+                  <div className="text-xs text-muted-foreground">AQI</div>
+                </div>
+                <div className="flex-1">
+                  <div 
+                    className={`text-sm font-medium ${
+                      data.aqiContext.aqi <= 50 ? 'text-green-700' :
+                      data.aqiContext.aqi <= 100 ? 'text-yellow-700' :
+                      data.aqiContext.aqi <= 150 ? 'text-orange-700' :
+                      'text-red-700'
+                    }`}
+                    data-testid="text-aqi-category"
+                  >{data.aqiContext.category}</div>
+                  {data.aqiContext.dominantPollutant && (
+                    <div className="text-xs text-muted-foreground" data-testid="text-aqi-pollutant">
+                      Main pollutant: {data.aqiContext.dominantPollutant.toUpperCase()}
+                    </div>
+                  )}
+                  {data.aqiContext.station && (
+                    <div className="text-xs text-muted-foreground truncate" title={data.aqiContext.station} data-testid="text-aqi-station">
+                      Station: {data.aqiContext.station}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-muted" data-testid="section-aqi-unavailable">
+              <div className="flex items-center gap-2">
+                <Wind className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Real-time air quality data unavailable for this location</span>
+              </div>
+            </div>
+          )}
+          
           {/* Ask a Question Section */}
           <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
             <div className="flex items-center gap-2 mb-2">
@@ -470,69 +577,13 @@ Explore environmental data at Verde`;
             colorClass="text-purple-500"
             detail={data.scoreDetails?.pollution}
             testId="score-cleanliness"
+            climateTraceData={data.climateTraceContext}
           />
         </div>
         
         <p className="text-xs text-center text-muted-foreground mt-2">
           Click any score to see detailed factors
         </p>
-
-        {/* Real-time AQI Data */}
-        {data.aqiContext ? (
-          <div className="mt-4 p-3 rounded-lg bg-sky-50 border border-sky-200" data-testid="section-aqi-context">
-            <div className="flex items-center gap-2 mb-2">
-              <Wind className="w-4 h-4 text-sky-600" />
-              <span className="text-sm font-medium text-sky-800">Real-time Air Quality</span>
-            </div>
-            <div className="flex items-center gap-3 mb-2">
-              <div 
-                className={`text-center p-2 px-4 rounded border ${
-                  data.aqiContext.aqi <= 50 ? 'bg-green-100 border-green-200' :
-                  data.aqiContext.aqi <= 100 ? 'bg-yellow-100 border-yellow-200' :
-                  data.aqiContext.aqi <= 150 ? 'bg-orange-100 border-orange-200' :
-                  'bg-red-100 border-red-200'
-                }`}
-                data-testid="badge-aqi-value"
-              >
-                <div className={`text-2xl font-bold ${
-                  data.aqiContext.aqi <= 50 ? 'text-green-700' :
-                  data.aqiContext.aqi <= 100 ? 'text-yellow-700' :
-                  data.aqiContext.aqi <= 150 ? 'text-orange-700' :
-                  'text-red-700'
-                }`}>{data.aqiContext.aqi}</div>
-                <div className="text-xs text-muted-foreground">AQI</div>
-              </div>
-              <div className="flex-1">
-                <div 
-                  className={`text-sm font-medium ${
-                    data.aqiContext.aqi <= 50 ? 'text-green-700' :
-                    data.aqiContext.aqi <= 100 ? 'text-yellow-700' :
-                    data.aqiContext.aqi <= 150 ? 'text-orange-700' :
-                    'text-red-700'
-                  }`}
-                  data-testid="text-aqi-category"
-                >{data.aqiContext.category}</div>
-                {data.aqiContext.dominantPollutant && (
-                  <div className="text-xs text-muted-foreground" data-testid="text-aqi-pollutant">
-                    Main pollutant: {data.aqiContext.dominantPollutant.toUpperCase()}
-                  </div>
-                )}
-                {data.aqiContext.station && (
-                  <div className="text-xs text-muted-foreground truncate" title={data.aqiContext.station} data-testid="text-aqi-station">
-                    Station: {data.aqiContext.station}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-muted" data-testid="section-aqi-unavailable">
-            <div className="flex items-center gap-2">
-              <Wind className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Real-time air quality data unavailable for this location</span>
-            </div>
-          </div>
-        )}
 
         {/* EPA Facility Context */}
         {data.epaContext && data.epaContext.totalFacilities > 0 && (
@@ -567,51 +618,6 @@ Explore environmental data at Verde`;
                     {industry}
                   </Badge>
                 ))}
-              </div>
-            )}
-          </div>
-        )}
-        
-        {/* Climate TRACE Global Emissions Data */}
-        {data.climateTraceContext && data.climateTraceContext.sourcesCount > 0 && (
-          <div className="mt-4 p-3 rounded-lg bg-emerald-50 border border-emerald-200" data-testid="section-climate-trace">
-            <div className="flex items-center gap-2 mb-2">
-              <Factory className="w-4 h-4 text-emerald-600" />
-              <span className="text-sm font-medium text-emerald-800">Climate TRACE National Emissions</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              <div className="text-center p-2 bg-white rounded border border-emerald-100">
-                <div className="text-lg font-bold text-foreground">{data.climateTraceContext.sourcesCount}</div>
-                <div className="text-xs text-muted-foreground">Emission Sources</div>
-              </div>
-              <div className="text-center p-2 bg-white rounded border border-emerald-100">
-                <div className="text-lg font-bold text-foreground">{data.climateTraceContext.totalEmissionsFormatted}</div>
-                <div className="text-xs text-muted-foreground">tonnes CO2e/yr</div>
-              </div>
-            </div>
-            {data.climateTraceContext.sectorBreakdown.length > 0 && (
-              <div className="mb-2">
-                <div className="text-xs text-emerald-700 font-medium mb-1">By Sector:</div>
-                <div className="flex flex-wrap gap-1">
-                  {data.climateTraceContext.sectorBreakdown.map((sector, i) => (
-                    <Badge key={i} variant="secondary" className="text-xs bg-emerald-100 text-emerald-800 border-emerald-200">
-                      {sector.sector}: {sector.emissionsFormatted}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-            {data.climateTraceContext.topSources.length > 0 && (
-              <div>
-                <div className="text-xs text-emerald-700 font-medium mb-1">Top Emitters:</div>
-                <div className="space-y-1">
-                  {data.climateTraceContext.topSources.slice(0, 3).map((source, i) => (
-                    <div key={i} className="text-xs text-muted-foreground">
-                      <span className="text-foreground">{source.name}</span>
-                      <span className="text-emerald-700 font-medium ml-1">({source.emissionsFormatted || 'N/A'})</span>
-                    </div>
-                  ))}
-                </div>
               </div>
             )}
           </div>

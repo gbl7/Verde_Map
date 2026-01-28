@@ -192,7 +192,12 @@ CLIMATE TRACE NATIONAL EMISSIONS DATA (for this country):
 - Sector breakdown: ${sectorSummary}
 - Largest emitters: ${topSources}
 
-This national emissions data covers power plants, factories, and industrial facilities tracked by Climate TRACE satellite monitoring. These are country-level statistics that provide context for the broader emissions landscape.`;
+This national emissions data covers power plants, factories, and industrial facilities tracked by Climate TRACE satellite monitoring. These are country-level statistics that provide context for the broader emissions landscape.
+
+IMPORTANT: For non-US locations where EPA data is not available, use the Climate TRACE emissions data to inform the pollution/cleanliness score. Higher emissions from the country indicate potential industrial impact. Consider factors like:
+- Countries with very high total emissions may have more industrial pollution
+- Power sector emissions suggest fossil fuel dependency
+- Oil & gas sector presence indicates potential local pollution sources`;
       }
       
       const prompt = `
@@ -210,7 +215,7 @@ Provide a JSON response with the following fields:
   - waterQuality (100 is best)
   - walkability (100 is best)
   - greenSpace (100 is best)
-  - pollution (100 is cleanest/least pollution) - directly affected by EPA facility count and violations
+  - pollution (100 is cleanest/least pollution) - for US locations use EPA facility count and violations; for non-US locations use Climate TRACE emissions data to estimate industrial pollution impact
 - scoreDetails: An object with detailed breakdown for each score category. Each has:
   - value: the score (same as in scores)
   - factors: array of 2-4 brief reasons affecting this score (e.g., "Heavy industrial activity within 5 miles", "Multiple EPA facilities with violations")

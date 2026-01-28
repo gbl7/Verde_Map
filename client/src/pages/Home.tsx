@@ -630,8 +630,8 @@ export default function Home() {
           {/* Spacer */}
           <div className="flex-1" />
           
-          {/* Right side: Analysis Card */}
-          <div className="pointer-events-auto w-full max-w-[calc(100%-80px)] sm:max-w-sm md:max-w-md flex flex-col gap-3">
+          {/* Right side: Analysis Card - full width on mobile when gamification panel is hidden */}
+          <div className="pointer-events-auto w-full max-w-full sm:max-w-sm md:max-w-md flex flex-col gap-3">
             
             {/* Context Actions if location selected */}
             <AnimatePresence>
@@ -679,8 +679,8 @@ export default function Home() {
           </div>
         </div>
         
-        {/* Mobile/Tablet: Gamification Panel at bottom-left */}
-        <div className="absolute bottom-3 left-3 z-20 pointer-events-auto w-48 sm:w-52 lg:hidden">
+        {/* Mobile/Tablet: Gamification Panel at bottom-left - hide when card is visible to prevent overlap */}
+        <div className={`absolute bottom-3 left-3 z-20 pointer-events-auto w-48 sm:w-52 lg:hidden transition-opacity ${isCardVisible && analyze.data ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
           <GamificationPanel stats={stats} levelInfo={levelInfo} />
         </div>
       </div>
