@@ -396,8 +396,8 @@ export async function queryClimateTraceSourcesForMap(
       }
     }
     
-    // Return top 500 emitters globally for better map coverage
-    return sources.slice(0, 500);
+    // Return all emitters globally - no filtering for comprehensive coverage
+    return sources;
   } catch (error) {
     console.error("Climate TRACE Map query failed:", error);
     return [];

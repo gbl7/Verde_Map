@@ -14,11 +14,11 @@ export function EsriLayers({ showEpaEcho, showGemsWater }: EsriLayersProps) {
     let epaLayer: any = null;
     
     if (showEpaEcho) {
-      // Use FeatureLayer for better rendering of EPA facilities
-      // Correct field names: FAC_NAICS_CODES, FAC_QTRS_IN_NC, FAC_CURR_SNC_FLG
+      // Use FeatureLayer with simplified query for faster loading
+      // Focus on major facilities and those with violations
       epaLayer = esriLeaflet.featureLayer({
         url: "https://echogeo.epa.gov/arcgis/rest/services/ECHO/Facilities/MapServer/0",
-        where: "FAC_MAJOR_FLAG = 'Y' OR FAC_CURR_SNC_FLG = 'Y' OR FAC_QTRS_IN_NC > 0 OR FAC_NAICS_CODES LIKE '324%' OR FAC_NAICS_CODES LIKE '562%' OR FAC_NAICS_CODES LIKE '325%' OR FAC_NAICS_CODES LIKE '221%' OR FAC_NAICS_CODES LIKE '331%'",
+        where: "FAC_MAJOR_FLAG = 'Y' OR FAC_CURR_SNC_FLG = 'Y'",
         pointToLayer: function(_geojson: any, latlng: any) {
           return (window as any).L.circleMarker(latlng, {
             radius: 6,

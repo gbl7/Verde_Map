@@ -81,7 +81,7 @@ When the CO2 layer is toggled on, emission point sources are displayed on the ma
 - **Map display**: CircleMarker components with sector-based colors (power=purple, oil&gas=orange, manufacturing=cyan, etc.)
 - **Size scaling**: Circle radius uses `log10(emissions) * 3` (min 5px, max 20px) for visual hierarchy
 - **Popup content**: Source name, sector with color indicator, emissions in tonnes CO2e/yr
-- **Returns**: Top 500 emitters globally, sorted by emissions
+- **Returns**: All 2000 sources globally (no filtering), sorted by emissions
 
 ### Sentinel 2 Land Cover Integration
 The `/api/analyze` endpoint queries Sentinel 2 satellite land cover data:
