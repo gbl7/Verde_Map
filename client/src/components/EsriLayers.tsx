@@ -14,11 +14,21 @@ export function EsriLayers({ showEpaEcho, showGemsWater }: EsriLayersProps) {
     let epaLayer: any = null;
     
     if (showEpaEcho) {
-      // Use FeatureLayer with simplified query for faster loading
-      // Focus on major facilities and those with violations
+      // Use FeatureLayer to display EPA regulated facilities
+      // Show all facilities without filtering for comprehensive coverage
       epaLayer = esriLeaflet.featureLayer({
         url: "https://echogeo.epa.gov/arcgis/rest/services/ECHO/Facilities/MapServer/0",
-        where: "FAC_MAJOR_FLAG = 'Y' OR FAC_CURR_SNC_FLG = 'Y'",
+        where: "1=1",
+        style: function() {
+          return {
+            radius: 6,
+            fillColor: "#ef4444",
+            color: "#b91c1c",
+            weight: 1,
+            opacity: 0.9,
+            fillOpacity: 0.7
+          };
+        },
         pointToLayer: function(_geojson: any, latlng: any) {
           return (window as any).L.circleMarker(latlng, {
             radius: 6,

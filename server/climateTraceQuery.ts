@@ -287,8 +287,8 @@ export async function queryClimateTraceSourcesForMap(
   radiusKm: number = 100
 ): Promise<ClimateTraceSource[]> {
   try {
-    // Query multiple top-emitting countries in parallel for global coverage
-    const countriesToQuery = TOP_EMITTING_COUNTRIES.slice(0, 10); // Query top 10 emitters
+    // Query all top-emitting countries in parallel for maximum global coverage
+    const countriesToQuery = TOP_EMITTING_COUNTRIES; // Query all 30 top emitters
     
     console.log("Climate TRACE Map: Querying global emissions from", countriesToQuery.length, "countries");
     
@@ -297,7 +297,7 @@ export async function queryClimateTraceSourcesForMap(
         const params = new URLSearchParams({
           countries: iso3,
           year: "2022",
-          limit: "200", // Get top 200 from each country for more coverage
+          limit: "100000", // Get maximum sources from each country
         });
         
         const url = `https://api.climatetrace.org/v6/assets?${params.toString()}`;

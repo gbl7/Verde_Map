@@ -385,6 +385,84 @@ Return ONLY valid JSON.
     }
   });
 
+  // EPA facilities for map display
+  app.get("/api/epa-facilities", async (req, res) => {
+    try {
+      const lat = parseFloat(req.query.lat as string);
+      const lng = parseFloat(req.query.lng as string);
+      const radius = parseFloat(req.query.radius as string) || 50; // miles
+      
+      if (isNaN(lat) || isNaN(lng)) {
+        return res.status(400).json({ message: "Valid lat and lng are required" });
+      }
+      
+      // Query EPA ECHO using a bounding box
+      const latOffset = radius / 69; // approx miles to degrees
+      const lngOffset = radius / (69 * Math.cos(lat * Math.PI / 180));
+      
+      const minLat = lat - latOffset;
+      const maxLat = lat + latOffset;
+      const minLng = lng - lngOffset;
+      const maxLng = lng + lngOffset;
+      
+      const params = new URLSearchParams({
+        geometry: `${minLng},${minLat},${maxLng},${maxLat}`,
+        geometryType: "esriGeometryEnvelope",
+        inSR: "4326",
+        outSR: "4326",
+        spatialRel: "esriSpatialRelIntersects",
+        outFields: "FAC_NAME,FAC_MAJOR_FLAG,FAC_CURR_SNC_FLG",
+        returnGeometry: "true",
+        f: "json",
+        where: "1=1",
+        resultRecordCount: "1000",
+      });
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      const response = await fetch(
+        `https://echogeo.epa.gov/arcgis/rest/services/ECHO/Facilities/MapServer/0/query?${params.toString()}`,
+        { signal: controller.signal }
+      );
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        console.error("EPA facilities API error:", response.status);
+        return res.json({ facilities: [], count: 0 });
+      }
+      
+      const data = await response.json();
+      
+      if (!data.features || data.features.length === 0) {
+        return res.json({ facilities: [], count: 0 });
+      }
+      
+      const facilities = data.features.map((f: any) => ({
+        id: f.attributes.FAC_NAME || Math.random().toString(36).slice(2),
+        name: f.attributes.FAC_NAME || "Unknown Facility",
+        isMajor: f.attributes.FAC_MAJOR_FLAG === "Y",
+        hasViolation: f.attributes.FAC_CURR_SNC_FLG === "Y",
+        lat: f.geometry?.y,
+        lng: f.geometry?.x,
+      })).filter((f: any) => f.lat && f.lng);
+      
+      console.log(`EPA facilities: Found ${facilities.length} in bounding box`);
+      
+      res.json({
+        facilities,
+        count: facilities.length,
+      });
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        console.log("EPA facilities request timed out");
+        return res.json({ facilities: [], count: 0 });
+      }
+      console.error("EPA facilities error:", err);
+      res.status(500).json({ message: "Failed to fetch EPA facilities" });
+    }
+  });
+
   // Climate TRACE emissions sources for map display
   app.get("/api/emissions-sources", async (req, res) => {
     try {

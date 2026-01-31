@@ -107,6 +107,14 @@ export default function Home() {
     emissions: number | null;
     emissionsFormatted?: string;
   }>>([]);
+  const [epaFacilities, setEpaFacilities] = useState<Array<{
+    id: string;
+    name: string;
+    isMajor: boolean;
+    hasViolation: boolean;
+    lat: number;
+    lng: number;
+  }>>([]);
   const [loadingEmissions, setLoadingEmissions] = useState(false);
   const { toast } = useToast();
 
@@ -172,6 +180,28 @@ export default function Home() {
     
     fetchEmissions();
   }, [layers.climate, center]);
+
+  // Fetch EPA facilities when pollution layer is enabled
+  useEffect(() => {
+    if (!layers.pollution || !center) {
+      setEpaFacilities([]);
+      return;
+    }
+    
+    const fetchEpa = async () => {
+      try {
+        const response = await fetch(`/api/epa-facilities?lat=${center[0]}&lng=${center[1]}&radius=100`);
+        if (response.ok) {
+          const data = await response.json();
+          setEpaFacilities(data.facilities || []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch EPA facilities:", error);
+      }
+    };
+    
+    fetchEpa();
+  }, [layers.pollution, center]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -345,9 +375,9 @@ export default function Home() {
               />
             )}
             
-            {/* ESRI Layers: EPA ECHO (Pollution) and GEMStat (Water Quality) */}
+            {/* ESRI Layer for Water Quality only - EPA uses custom endpoint now */}
             <EsriLayers 
-              showEpaEcho={layers.pollution} 
+              showEpaEcho={false} 
               showGemsWater={layers.water}
             />
 
@@ -376,6 +406,36 @@ export default function Home() {
               </Marker>
             ))}
             
+            {/* EPA Facilities (Red markers) */}
+            {layers.pollution && epaFacilities.map((facility) => (
+              <CircleMarker
+                key={`epa-${facility.id}-${facility.lat}-${facility.lng}`}
+                center={[facility.lat, facility.lng]}
+                radius={facility.isMajor ? 8 : 5}
+                pathOptions={{
+                  color: facility.hasViolation ? "#dc2626" : "#ef4444",
+                  fillColor: facility.hasViolation ? "#dc2626" : "#ef4444",
+                  fillOpacity: 0.7,
+                  weight: facility.hasViolation ? 2 : 1,
+                }}
+              >
+                <Popup className="min-w-[200px] rounded-xl overflow-hidden shadow-lg border-none p-0">
+                  <div className="p-3 bg-background">
+                    <div className="font-bold text-sm mb-1 text-foreground">{facility.name}</div>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {facility.isMajor && (
+                        <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">Major Facility</span>
+                      )}
+                      {facility.hasViolation && (
+                        <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded">Violation</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-2">EPA Regulated Facility</div>
+                  </div>
+                </Popup>
+              </CircleMarker>
+            ))}
+
             {/* Climate TRACE Emissions Sources */}
             {layers.climate && emissionsSources.map((source) => {
               const sectorColors: Record<string, string> = {
