@@ -109,9 +109,11 @@ export async function registerRoutes(
   // Analysis API
   app.post(api.analysis.analyze.path, async (req, res) => {
     try {
+      const startTime = Date.now();
       const { lat, lng } = api.analysis.analyze.input.parse(req.body);
 
       // Get accurate location name via reverse geocoding (in parallel with EPA, WAQI, Climate TRACE, and Land Cover queries)
+      const dataFetchStart = Date.now();
       const [locationName, epaData, aqiData, climateData, landCoverData] = await Promise.all([
         reverseGeocode(lat, lng),
         queryNearbyEpaFacilities(lat, lng, 10),
@@ -119,8 +121,9 @@ export async function registerRoutes(
         queryClimateTraceSources(lat, lng, 50),
         queryLandCover(lat, lng, 1000) // 1km radius for land cover analysis
       ]);
+      const dataFetchTime = Date.now() - dataFetchStart;
       
-      console.log(`Location: ${locationName}, EPA: ${epaData.totalFacilities} facilities, AQI: ${aqiData.aqi}, Climate TRACE: ${climateData.sources.length} sources, Land Cover: ${landCoverData.dominantClass}`);
+      console.log(`[TIMING] Data fetch: ${dataFetchTime}ms | Location: ${locationName}, EPA: ${epaData.totalFacilities} facilities, AQI: ${aqiData.aqi}, Climate TRACE: ${climateData.sources.length} sources, Land Cover: ${landCoverData.dominantClass}`);
       
       // Build context about nearby facilities and air quality
       let facilityContext = "";
@@ -231,14 +234,17 @@ Example scoreDetails entry:
 Return ONLY valid JSON.
       `;
 
+      const aiStart = Date.now();
       const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: "You are an environmental data analyst. Use the provided EPA data to generate accurate, data-driven scores. Return JSON only." },
           { role: "user", content: prompt }
         ],
         response_format: { type: "json_object" },
       });
+      const aiTime = Date.now() - aiStart;
+      console.log(`[TIMING] AI analysis: ${aiTime}ms`);
 
       const content = response.choices[0].message.content;
       if (!content) throw new Error("No response from AI");
@@ -301,6 +307,9 @@ Return ONLY valid JSON.
       } : null;
       
       // Merge AI response with server-computed data
+      const totalTime = Date.now() - startTime;
+      console.log(`[TIMING] Total /api/analyze: ${totalTime}ms (data: ${dataFetchTime}ms, AI: ${aiTime}ms)`);
+      
       res.json({
         ...aiData,
         epaContext,
@@ -331,7 +340,7 @@ Return ONLY valid JSON.
       `;
 
       const response = await openai.chat.completions.create({
-        model: "gpt-5.1",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: "You are a helpful environmental and geographic expert. Provide informative answers about locations." },
           { role: "user", content: prompt }

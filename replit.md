@@ -97,6 +97,14 @@ The `/api/analyze` endpoint queries Sentinel 2 satellite land cover data:
 - **Timeout**: 10-second limit to prevent slow responses
 - **Data source**: Partnership between Impact Observatory, Microsoft, and Esri (no API key required)
 
+### API Performance
+The `/api/analyze` endpoint is optimized for speed:
+- **Data fetching**: All external APIs (reverse geocoding, WAQI, EPA, Climate TRACE, Land Cover) run in parallel using `Promise.all`
+- **AI model**: Uses `gpt-4o-mini` for fast, cost-effective environmental analysis (~3-4s)
+- **Timeouts**: EPA ECHO has 8s timeout to prevent slow responses from blocking requests
+- **Typical response time**: 5-8 seconds total (down from 22s+ with sequential calls)
+- **Timing logs**: Server logs show `[TIMING]` breakdown for data fetch and AI analysis
+
 ### Key Design Decisions
 
 1. **Shared Route Contracts**: The `shared/routes.ts` file defines API contracts with input/output schemas, enabling type-safe API calls from the frontend and validation on the backend.

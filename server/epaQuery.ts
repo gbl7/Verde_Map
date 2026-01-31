@@ -87,9 +87,9 @@ export async function queryNearbyEpaFacilities(
     const url = `${baseUrl}?${params.toString()}`;
     console.log("EPA query for:", lat, lng, "radius:", radiusMiles, "mi");
     
-    // Add 15 second timeout to prevent hanging
+    // Add 8 second timeout to prevent hanging (EPA can be slow)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     
     const response = await fetch(url, { signal: controller.signal });
     clearTimeout(timeoutId);
