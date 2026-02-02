@@ -67,11 +67,11 @@ The `/api/analyze` endpoint queries the EPA ECHO ArcGIS service for regulated fa
 The application uses a pre-cached PostgreSQL database of Climate TRACE emissions data for fast queries:
 
 **Database Storage**:
-- **Table**: `emissions_sources` in PostgreSQL with ~478,000 sources from 17+ countries
+- **Table**: `emissions_sources` in PostgreSQL with ~1.1M sources from 120 countries (global coverage)
 - **Schema**: sourceId, name, country (ISO3), sector, lat, lng, emissions (CO2e tonnes/yr)
 - **Indexes**: Composite index on (lat, lng) for spatial queries, plus country and sector indexes
 - **Import Script**: `server/importClimateTrace.ts` fetches from Climate TRACE API and populates database
-- **Priority Countries**: CHN, USA, IND, RUS, JPN, DEU, IRN, SAU, IDN, KOR, CAN, MEX, BRA, AUS, GBR, TUR, FRA, ITA, POL, THA
+- **Full Import**: Run with `FULL_IMPORT=true npx tsx server/importClimateTrace.ts` to import all 120 countries
 
 **Query Functions** (in `server/climateTraceQuery.ts`):
 - `queryEmissionsFromDatabase()`: Returns top 50,000 emitters globally, sorted by emissions
@@ -87,11 +87,13 @@ The application uses a pre-cached PostgreSQL database of Climate TRACE emissions
 ### Emissions Sources Map Layer
 When the CO2 layer is toggled on, emission point sources are displayed on the map:
 - **API Endpoint**: `GET /api/emissions-sources` with optional viewport params (minLat, maxLat, minLng, maxLng)
-- **Data Source**: PostgreSQL database with 478,000+ cached Climate TRACE sources
+- **Data Source**: PostgreSQL database with 1.1M+ cached Climate TRACE sources from 120 countries
 - **Viewport Filtering**: When bounds provided, queries only sources in visible area using spatial indexes
 - **Global Mode**: Without bounds, returns top 50,000 emitters globally sorted by emissions
 - **Map display**: CircleMarker components with sector-based colors (power=purple, oil&gas=orange, manufacturing=cyan, etc.)
 - **Size scaling**: Circle radius uses `log10(emissions) * 3` (min 5px, max 20px) for visual hierarchy
+- **Map Panning**: Emissions refresh automatically when map is panned (debounced by 500ms)
+- **Performance**: Frontend limits to 500 markers, backend returns up to 1,000 per viewport
 - **Popup content**: Source name, sector with color indicator, emissions in tonnes CO2e/yr
 - **Performance**: Database queries with indexes are sub-second vs 10+ seconds for API calls
 
