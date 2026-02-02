@@ -94,6 +94,7 @@ function LocationMarker({ onSelectLocation, onCenterChange }: {
 
 export default function Home() {
   const [center, setCenter] = useState<[number, number] | null>(null);
+  const [viewportCenter, setViewportCenter] = useState<[number, number] | null>(null); // Tracks map viewport for data fetching
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [layers, setLayers] = useState({
     air: true,
@@ -132,14 +133,14 @@ export default function Home() {
   const analyze = useAnalyzeLocation();
   const { stats, levelInfo, newBadges, recordPinDrop, recordExploration, clearNewBadges } = useGamification();
   
-  // Debounced center change handler for map panning
+  // Debounced viewport center change handler for map panning (doesn't trigger flyTo)
   const centerDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleMapCenterChange = useCallback((lat: number, lng: number) => {
     if (centerDebounceRef.current) {
       clearTimeout(centerDebounceRef.current);
     }
     centerDebounceRef.current = setTimeout(() => {
-      setCenter([lat, lng]);
+      setViewportCenter([lat, lng]); // Only update viewport, not main center
     }, 500); // Debounce by 500ms
   }, []);
   
@@ -187,8 +188,10 @@ export default function Home() {
   }, []);
 
   // Fetch emissions sources when climate layer is enabled
+  // Use viewportCenter (from panning) if available, otherwise fall back to center
+  const effectiveCenter = viewportCenter || center;
   useEffect(() => {
-    if (!layers.climate || !center) {
+    if (!layers.climate || !effectiveCenter) {
       setEmissionsSources([]);
       return;
     }
@@ -200,10 +203,10 @@ export default function Home() {
         // Approximate viewport bounds based on center (roughly 10 degrees each direction)
         const latDelta = 10;
         const lngDelta = 15;
-        const minLat = center[0] - latDelta;
-        const maxLat = center[0] + latDelta;
-        const minLng = center[1] - lngDelta;
-        const maxLng = center[1] + lngDelta;
+        const minLat = effectiveCenter[0] - latDelta;
+        const maxLat = effectiveCenter[0] + latDelta;
+        const minLng = effectiveCenter[1] - lngDelta;
+        const maxLng = effectiveCenter[1] + lngDelta;
         
         const response = await fetch(`/api/emissions-sources?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}`);
         if (response.ok) {
@@ -220,18 +223,18 @@ export default function Home() {
     };
     
     fetchEmissions();
-  }, [layers.climate, center]);
+  }, [layers.climate, effectiveCenter]);
 
   // Fetch EPA facilities when pollution layer is enabled
   useEffect(() => {
-    if (!layers.pollution || !center) {
+    if (!layers.pollution || !effectiveCenter) {
       setEpaFacilities([]);
       return;
     }
     
     const fetchEpa = async () => {
       try {
-        const response = await fetch(`/api/epa-facilities?lat=${center[0]}&lng=${center[1]}&radius=100`);
+        const response = await fetch(`/api/epa-facilities?lat=${effectiveCenter[0]}&lng=${effectiveCenter[1]}&radius=100`);
         if (response.ok) {
           const data = await response.json();
           setEpaFacilities(data.facilities || []);
@@ -242,7 +245,7 @@ export default function Home() {
     };
     
     fetchEpa();
-  }, [layers.pollution, center]);
+  }, [layers.pollution, effectiveCenter]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
