@@ -8,6 +8,7 @@ import { queryNearbyEpaFacilities } from "./epaQuery";
 import { queryAirQuality, aqiToScore, getAqiCategory } from "./waqiQuery";
 import { queryClimateTraceSources, queryClimateTraceSourcesForMap, formatEmissions, getSectorLabel, ClimateTraceSource, queryEmissionsFromDatabase, queryEmissionsNearLocation, getEmissionsDatabaseCount } from "./climateTraceQuery";
 import { queryLandCover } from "./landCoverQuery";
+import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 
 // Reverse geocode coordinates to get accurate location name
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
@@ -86,6 +87,10 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  
+  // Setup authentication (BEFORE other routes)
+  await setupAuth(app);
+  registerAuthRoutes(app);
   
   // Pins API
   app.get(api.pins.list.path, async (req, res) => {

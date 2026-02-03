@@ -2,8 +2,8 @@ import { pgTable, text, serial, integer, boolean, timestamp, jsonb, doublePrecis
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Re-export chat models from integration if needed, but for now we focus on pins
-// export * from "./models/chat"; 
+// Export auth models for Replit Auth
+export * from "./models/auth"; 
 
 export const pins = pgTable("pins", {
   id: serial("id").primaryKey(),
