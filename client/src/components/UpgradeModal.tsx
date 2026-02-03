@@ -126,17 +126,21 @@ export function UpgradeModal({ open, onOpenChange }: UpgradeModalProps) {
           <div className="text-center">
             {productsLoading ? (
               <Loader2 className="h-8 w-8 animate-spin mx-auto text-green-600" />
+            ) : !monthlyPrice || !yearlyPrice ? (
+              <div className="text-sm text-muted-foreground">
+                Unable to load pricing. Please try again later.
+              </div>
             ) : (
               <>
                 <div className="text-4xl font-bold text-green-600">
                   ${billingCycle === 'monthly' 
-                    ? ((monthlyPrice?.unit_amount || 999) / 100).toFixed(2) 
-                    : ((yearlyPrice?.unit_amount || 7999) / 100).toFixed(2)}
+                    ? (monthlyPrice.unit_amount / 100).toFixed(2) 
+                    : (yearlyPrice.unit_amount / 100).toFixed(2)}
                 </div>
                 <div className="text-sm text-muted-foreground">
                   per {billingCycle === 'monthly' ? 'month' : 'year'}
                 </div>
-                {billingCycle === 'yearly' && yearlyPrice && (
+                {billingCycle === 'yearly' && (
                   <div className="text-xs text-green-600 mt-1">
                     That's just ${((yearlyPrice.unit_amount / 100) / 12).toFixed(2)}/month
                   </div>
@@ -158,7 +162,7 @@ export function UpgradeModal({ open, onOpenChange }: UpgradeModalProps) {
           
           <Button
             onClick={handleUpgrade}
-            disabled={isLoading}
+            disabled={isLoading || productsLoading || !monthlyPrice || !yearlyPrice}
             className="w-full bg-green-600 hover:bg-green-700"
             size="lg"
             data-testid="button-upgrade-confirm"

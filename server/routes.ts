@@ -766,17 +766,30 @@ Return ONLY valid JSON.
       }
 
       // Validate priceId against allowed Verde Pro prices
-      const allowedPrices = [
-        process.env.VERDE_PRO_MONTHLY_PRICE_ID,
-        process.env.VERDE_PRO_YEARLY_PRICE_ID,
-      ].filter(Boolean);
+      const verdeProProductId = process.env.VERDE_PRO_PRODUCT_ID;
       
-      if (allowedPrices.length > 0 && !allowedPrices.includes(priceId)) {
-        // Also validate against Stripe synced prices as fallback
-        const price = await stripeStorage.getPrice(priceId);
-        if (!price || !price.active) {
-          return res.status(400).json({ message: "Invalid price ID" });
-        }
+      // Fail closed: require product ID to be configured
+      if (!verdeProProductId) {
+        console.error("VERDE_PRO_PRODUCT_ID not configured - rejecting checkout");
+        return res.status(500).json({ message: "Subscription checkout not available - configuration error" });
+      }
+      
+      // Always validate price against Stripe - regardless of allowlist
+      const price = await stripeStorage.getPrice(priceId);
+      
+      if (!price || !price.active) {
+        return res.status(400).json({ message: "Invalid or inactive price ID" });
+      }
+      
+      // Ensure the price belongs to the Verde Pro product (Stripe uses 'product' field)
+      if (price.product !== verdeProProductId) {
+        console.warn(`Price ${priceId} belongs to product ${price.product}, not Verde Pro ${verdeProProductId}`);
+        return res.status(400).json({ message: "Price does not belong to Verde Pro product" });
+      }
+      
+      // Ensure it's a recurring subscription price (Stripe uses 'type' field or 'recurring' object)
+      if (price.type !== 'recurring' && !price.recurring) {
+        return res.status(400).json({ message: "Invalid price type - must be recurring subscription" });
       }
 
       let customerId = user.stripeCustomerId;
