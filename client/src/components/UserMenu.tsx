@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, LogOut, Crown, Settings, Leaf } from "lucide-react";
+import { SiGoogle } from "react-icons/si";
 import { UpgradeModal } from "./UpgradeModal";
 
 export function UserMenu() {
@@ -24,16 +25,19 @@ export function UserMenu() {
 
   if (!isAuthenticated) {
     return (
-      <Button
-        variant="default"
-        size="sm"
-        className="gap-2 bg-green-600 hover:bg-green-700"
-        onClick={() => window.location.href = "/api/login"}
-        data-testid="button-login"
-      >
-        <User className="h-4 w-4" />
-        <span className="hidden sm:inline">Sign In</span>
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          onClick={() => window.location.href = "/api/login"}
+          data-testid="button-login-google"
+        >
+          <SiGoogle className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Sign in with Google</span>
+          <span className="sm:hidden">Sign in</span>
+        </Button>
+      </div>
     );
   }
 
