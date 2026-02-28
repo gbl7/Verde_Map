@@ -33,10 +33,14 @@ The application employs a deterministic scoring engine that computes environment
 | Tier | Location | Data Sources | AI Fallback |
 |------|----------|-------------|-------------|
 | Best | California | CalEnviroScreen 4.0 + WAQI + EPA ECHO + Sentinel-2 + Climate TRACE | Summary text only |
-| Good | Other US | WAQI + EPA ECHO + Sentinel-2 + Climate TRACE | Water quality, walkability |
-| Fair | International | WAQI + Sentinel-2 + Climate TRACE | Water quality, walkability |
+| Good | Other US | WAQI + EPA ECHO + Sentinel-2 + Climate TRACE | Water quality |
+| Fair | International | WAQI + Sentinel-2 + Climate TRACE | Water quality |
 
-Score sources are tracked per-category (`scoreSources` field): "calenviroscreen", "deterministic", or "ai".
+**Five scoring categories**: Air Quality, Water Quality, Climate & Emissions, Green Space, Pollution/Cleanliness.
+
+Score sources are tracked per-category (`scoreSources` field): "calenviroscreen", "climate-trace", "deterministic", or "ai".
+
+**Climate & Emissions** score (replaced Walkability) leverages the full Climate TRACE database (1.1M emission sources, 120 countries, 46 sectors) within a 50km radius. Scoring uses tiered emissions thresholds with logarithmic scaling, sector diversity penalties, and CES traffic density blending for CA locations.
 
 ### CalEnviroScreen 4.0 Integration (`server/calenviroScreenQuery.ts`)
 - ArcGIS FeatureServer spatial query using `esriGeometryEnvelope` (not Point — the server doesn't support point queries)

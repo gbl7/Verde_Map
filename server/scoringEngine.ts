@@ -301,33 +301,130 @@ export function computeWaterQualityScore(
   return { score: finalScore, factors, tips };
 }
 
-export function computeWalkabilityScore(
+export interface ClimateEmissionsInput {
+  totalEmissions: number;
+  sourcesCount: number;
+  sectorBreakdown: Record<string, { count: number; emissions: number }>;
+  topSources: { name: string; sector: string; emissions: number | null }[];
+  radiusKm: number;
+}
+
+export function computeClimateEmissionsScore(
+  climateInput: ClimateEmissionsInput | null,
   cesData?: CesData | null
 ): ScoreResult | null {
-  if (!cesData || cesData.trafficP === undefined) return null;
+  if (!climateInput || (climateInput.sourcesCount === 0 && climateInput.totalEmissions === 0)) {
+    return null;
+  }
 
   const factors: string[] = [];
   const tips: string[] = [];
 
-  const trafficScore = percentileToScore(cesData.trafficP)!;
-  const finalScore = clamp(trafficScore, 0, 100);
+  const emissionsMt = climateInput.totalEmissions / 1_000_000;
 
-  factors.push(`CES traffic density percentile: ${cesData.trafficP.toFixed(1)}%`);
-
-  if (cesData.dieselP !== undefined) {
-    factors.push(`Diesel PM exposure percentile: ${cesData.dieselP.toFixed(1)}%`);
-  }
-
-  if (finalScore >= 70) {
-    tips.push("Lower traffic density — generally more walkable and bikeable");
-  } else if (finalScore >= 40) {
-    tips.push("Moderate traffic — choose routes away from major roads when walking");
+  let finalScore: number;
+  if (emissionsMt <= 0.01) {
+    finalScore = 95;
+  } else if (emissionsMt <= 0.1) {
+    finalScore = 85;
+  } else if (emissionsMt <= 1) {
+    finalScore = 75;
+  } else if (emissionsMt <= 10) {
+    finalScore = 65 - Math.min((emissionsMt - 1) * 2.5, 20);
+  } else if (emissionsMt <= 100) {
+    finalScore = 45 - Math.min((emissionsMt - 10) * 0.3, 20);
   } else {
-    tips.push("High traffic density — walk on quieter side streets when possible");
-    tips.push("Consider wearing a mask when walking near busy roads");
+    finalScore = 25 - Math.min(Math.log10(emissionsMt / 100) * 10, 20);
   }
 
-  return { score: finalScore, factors, tips };
+  const sectorCount = Object.keys(climateInput.sectorBreakdown).length;
+  if (sectorCount > 10) {
+    finalScore -= Math.min((sectorCount - 10) * 0.5, 5);
+  }
+
+  factors.push(`${climateInput.sourcesCount} emission sources within ${climateInput.radiusKm}km`);
+  factors.push(`Total: ${formatEmissionsMt(climateInput.totalEmissions)} CO2e/year`);
+
+  const sortedSectors = Object.entries(climateInput.sectorBreakdown)
+    .sort((a, b) => b[1].emissions - a[1].emissions)
+    .slice(0, 3);
+
+  for (const [sector, data] of sortedSectors) {
+    const pct = climateInput.totalEmissions > 0
+      ? ((data.emissions / climateInput.totalEmissions) * 100).toFixed(0)
+      : "0";
+    factors.push(`${formatSectorName(sector)}: ${formatEmissionsMt(data.emissions)} (${pct}%)`);
+  }
+
+  if (climateInput.topSources.length > 0) {
+    const top = climateInput.topSources[0];
+    if (top.emissions && top.emissions > 1_000_000) {
+      factors.push(`Largest source: ${top.name} (${formatEmissionsMt(top.emissions)})`);
+    }
+  }
+
+  if (cesData && cesData.trafficP !== undefined) {
+    const trafficScore = percentileToScore(cesData.trafficP)!;
+    finalScore = clamp(finalScore * 0.7 + trafficScore * 0.3, 0, 100);
+    factors.push(`CES traffic density: ${cesData.trafficP.toFixed(0)}th percentile`);
+  }
+
+  finalScore = clamp(finalScore, 3, 100);
+
+  if (finalScore >= 75) {
+    tips.push("Low local emissions — this area has a relatively small carbon footprint");
+  } else if (finalScore >= 50) {
+    tips.push("Moderate emissions — consider supporting local clean energy initiatives");
+    tips.push("Check if your energy provider offers renewable options");
+  } else if (finalScore >= 30) {
+    tips.push("Significant industrial emissions nearby — follow local air quality advisories");
+    tips.push("Support community efforts to transition to cleaner energy sources");
+  } else {
+    tips.push("Heavy industrial emissions in this area — stay informed about local environmental health");
+    tips.push("Engage with local climate action groups and public comment processes");
+  }
+
+  return { score: clamp(finalScore, 3, 100), factors, tips };
+}
+
+function formatSectorName(sector: string): string {
+  const labels: Record<string, string> = {
+    "electricity-generation": "Power generation",
+    "road-transportation": "Road transport",
+    "oil-and-gas-refining": "Oil & gas refining",
+    "oil-and-gas-production": "Oil & gas production",
+    "oil-and-gas-transport": "Oil & gas transport",
+    "residential-onsite-fuel-usage": "Residential fuel",
+    "non-residential-onsite-fuel-usage": "Commercial fuel",
+    "international-aviation": "International aviation",
+    "domestic-aviation": "Domestic aviation",
+    "international-shipping": "International shipping",
+    "domestic-shipping": "Domestic shipping",
+    "iron-and-steel": "Iron & steel",
+    "coal-mining": "Coal mining",
+    "forest-land-fires": "Forest fires",
+    "forest-land-clearing": "Deforestation",
+    "shrubgrass-fires": "Brush fires",
+    "enteric-fermentation-cattle-pasture": "Livestock (pasture)",
+    "enteric-fermentation-cattle-operation": "Livestock (feedlot)",
+    "solid-waste-disposal": "Solid waste",
+    "domestic-wastewater-treatment-and-discharge": "Wastewater",
+    "food-beverage-tobacco": "Food & beverage",
+    "cement": "Cement",
+    "chemicals": "Chemicals",
+    "other-chemicals": "Chemicals",
+    "petrochemical-steam-cracking": "Petrochemicals",
+    "rice-cultivation": "Rice cultivation",
+    "synthetic-fertilizer-application": "Fertilizers",
+  };
+  return labels[sector] || sector.charAt(0).toUpperCase() + sector.slice(1).replace(/-/g, " ");
+}
+
+function formatEmissionsMt(tonnes: number): string {
+  if (tonnes >= 1_000_000_000) return `${(tonnes / 1_000_000_000).toFixed(1)}B tonnes`;
+  if (tonnes >= 1_000_000) return `${(tonnes / 1_000_000).toFixed(1)}M tonnes`;
+  if (tonnes >= 1_000) return `${(tonnes / 1_000).toFixed(1)}K tonnes`;
+  return `${tonnes.toFixed(0)} tonnes`;
 }
 
 function formatEmissionsShort(tonnes: number): string {

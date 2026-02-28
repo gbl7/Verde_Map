@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Wind, Droplets, Footprints, Trees, CheckCircle2, MessageCircle, Send, Loader2, Factory, AlertTriangle, ChevronDown, Lightbulb, Info, X, Minimize2, Maximize2, Share2, Check, Copy, Map, Shield, Database } from "lucide-react";
+import { Wind, Droplets, Thermometer, Trees, CheckCircle2, MessageCircle, Send, Loader2, Factory, AlertTriangle, ChevronDown, Lightbulb, Info, X, Minimize2, Maximize2, Share2, Check, Copy, Map, Shield, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,7 @@ function DataSourceBadge({ source }: { source?: string }) {
   
   const config: Record<string, { label: string; className: string }> = {
     calenviroscreen: { label: "CES 4.0", className: "bg-indigo-100 text-indigo-700 border-indigo-200" },
+    "climate-trace": { label: "Climate TRACE", className: "bg-teal-100 text-teal-700 border-teal-200" },
     deterministic: { label: "Data-driven", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
     ai: { label: "AI estimated", className: "bg-slate-100 text-slate-600 border-slate-200" },
   };
@@ -149,19 +150,19 @@ function ScoreRow({ label, value, icon: Icon, colorClass, detail, testId, climat
                 </div>
               )}
               
-              {/* Climate TRACE Emissions Data for Cleanliness */}
+              {/* Climate TRACE Emissions Data */}
               {hasClimateTrace && (
-                <div className="ml-11 p-2 rounded-lg bg-emerald-50 border border-emerald-200" data-testid="climate-trace-detail">
+                <div className="ml-11 p-2 rounded-lg bg-teal-50 border border-teal-200" data-testid="climate-trace-detail">
                   <div className="flex items-center gap-1 mb-2">
-                    <Factory className="w-3 h-3 text-emerald-600" />
-                    <span className="text-xs font-medium text-emerald-700">National Emissions Data</span>
+                    <Thermometer className="w-3 h-3 text-teal-600" />
+                    <span className="text-xs font-medium text-teal-700">Climate TRACE Emissions (50km)</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 mb-2">
-                    <div className="text-center p-1.5 bg-white rounded border border-emerald-100">
+                    <div className="text-center p-1.5 bg-white rounded border border-teal-100">
                       <div className="text-sm font-bold text-foreground">{climateTraceData.sourcesCount}</div>
                       <div className="text-xs text-muted-foreground">Sources</div>
                     </div>
-                    <div className="text-center p-1.5 bg-white rounded border border-emerald-100">
+                    <div className="text-center p-1.5 bg-white rounded border border-teal-100">
                       <div className="text-sm font-bold text-foreground">{climateTraceData.totalEmissionsFormatted}</div>
                       <div className="text-xs text-muted-foreground">CO2e/yr</div>
                     </div>
@@ -169,7 +170,7 @@ function ScoreRow({ label, value, icon: Icon, colorClass, detail, testId, climat
                   {climateTraceData.sectorBreakdown.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {climateTraceData.sectorBreakdown.slice(0, 3).map((sector, i) => (
-                        <Badge key={i} variant="secondary" className="text-xs bg-emerald-100 text-emerald-800 border-emerald-200">
+                        <Badge key={i} variant="secondary" className="text-xs bg-teal-100 text-teal-800 border-teal-200">
                           {sector.sector}: {sector.emissionsFormatted}
                         </Badge>
                       ))}
@@ -192,14 +193,14 @@ interface EnvironmentalCardProps {
     scores: {
       airQuality: number;
       waterQuality: number;
-      walkability: number;
+      climateEmissions: number;
       greenSpace: number;
       pollution: number;
     };
     scoreDetails?: {
       airQuality?: ScoreDetail;
       waterQuality?: ScoreDetail;
-      walkability?: ScoreDetail;
+      climateEmissions?: ScoreDetail;
       greenSpace?: ScoreDetail;
       pollution?: ScoreDetail;
     };
@@ -288,7 +289,7 @@ export function EnvironmentalCard({ data, lat, lng, isLoading, onClose, isMinimi
 Overall Score: ${average}/100
 Air Quality: ${scores.airQuality}/100
 Water Quality: ${scores.waterQuality}/100
-Walkability: ${scores.walkability}/100
+Climate & Emissions: ${scores.climateEmissions}/100
 Green Space: ${scores.greenSpace}/100
 Pollution: ${scores.pollution}/100
 
@@ -591,13 +592,14 @@ Explore environmental data at Verde`;
             dataSource={data.scoreSources?.waterQuality}
           />
           <ScoreRow 
-            label="Walkability" 
-            value={data.scores.walkability} 
-            icon={Footprints} 
-            colorClass="text-orange-500"
-            detail={data.scoreDetails?.walkability}
-            testId="score-walkability"
-            dataSource={data.scoreSources?.walkability}
+            label="Climate & Emissions" 
+            value={data.scores.climateEmissions} 
+            icon={Thermometer} 
+            colorClass="text-teal-500"
+            detail={data.scoreDetails?.climateEmissions}
+            testId="score-climate-emissions"
+            climateTraceData={data.climateTraceContext}
+            dataSource={data.scoreSources?.climateEmissions}
           />
           <ScoreRow 
             label="Green Space" 
@@ -615,7 +617,6 @@ Explore environmental data at Verde`;
             colorClass="text-purple-500"
             detail={data.scoreDetails?.pollution}
             testId="score-cleanliness"
-            climateTraceData={data.climateTraceContext}
             dataSource={data.scoreSources?.pollution}
           />
         </div>

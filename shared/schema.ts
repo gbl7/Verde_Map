@@ -65,14 +65,14 @@ export const analysisResponseSchema = z.object({
   scores: z.object({
     airQuality: z.number(),
     waterQuality: z.number(),
-    walkability: z.number(),
+    climateEmissions: z.number(),
     greenSpace: z.number(),
     pollution: z.number(),
   }),
   scoreDetails: z.object({
     airQuality: scoreDetailSchema,
     waterQuality: scoreDetailSchema,
-    walkability: scoreDetailSchema,
+    climateEmissions: scoreDetailSchema,
     greenSpace: scoreDetailSchema,
     pollution: scoreDetailSchema,
   }).optional(),

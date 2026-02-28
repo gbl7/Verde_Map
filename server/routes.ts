@@ -9,7 +9,7 @@ import { queryAirQuality, aqiToScore, getAqiCategory } from "./waqiQuery";
 import { queryClimateTraceSources, queryClimateTraceSourcesForMap, formatEmissions, getSectorLabel, ClimateTraceSource, queryEmissionsFromDatabase, queryEmissionsNearLocation, getEmissionsDatabaseCount } from "./climateTraceQuery";
 import { queryLandCover } from "./landCoverQuery";
 import { queryCalEnviroScreen, isCaliforniaLocation, CalEnviroScreenData } from "./calenviroScreenQuery";
-import { computeAirQualityScore, computeGreenSpaceScore, computePollutionScore, computeWaterQualityScore, computeWalkabilityScore, ScoreResult, CesData } from "./scoringEngine";
+import { computeAirQualityScore, computeGreenSpaceScore, computePollutionScore, computeWaterQualityScore, computeClimateEmissionsScore, ScoreResult, CesData, ClimateEmissionsInput } from "./scoringEngine";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { stripeService } from "./stripeService";
 import { stripeStorage } from "./stripeStorage";
@@ -191,12 +191,24 @@ export async function registerRoutes(
         sources: climateData.sources.map(s => ({ emissions: s.emissions })),
       } : null;
 
+      const climateEmissionsInput: ClimateEmissionsInput | null = climateData.sources.length > 0 ? {
+        totalEmissions: climateData.totalEmissions,
+        sourcesCount: climateData.sources.length,
+        sectorBreakdown: climateData.sectorBreakdown,
+        topSources: climateData.sources.slice(0, 5).map(s => ({
+          name: s.name,
+          sector: s.sector,
+          emissions: s.emissions,
+        })),
+        radiusKm: 50,
+      } : null;
+
       const deterministicScores: Record<string, ScoreResult | null> = {
         airQuality: computeAirQualityScore(aqiData.aqi, cesData),
         greenSpace: computeGreenSpaceScore(landCoverInput, cesData),
         pollution: computePollutionScore(epaInput, cesData, climateInput),
         waterQuality: computeWaterQualityScore(cesData),
-        walkability: computeWalkabilityScore(cesData),
+        climateEmissions: computeClimateEmissionsScore(climateEmissionsInput, cesData),
       };
 
       const scoreSources: Record<string, string> = {};
@@ -207,7 +219,9 @@ export async function registerRoutes(
         if (result) {
           finalScores[key] = result.score;
           finalScoreDetails[key] = { value: result.score, factors: result.factors, tips: result.tips };
-          if (cesData && (key === "airQuality" || key === "waterQuality" || key === "walkability" || key === "pollution")) {
+          if (key === "climateEmissions") {
+            scoreSources[key] = "climate-trace";
+          } else if (cesData && (key === "airQuality" || key === "waterQuality" || key === "pollution")) {
             scoreSources[key] = "calenviroscreen";
           } else {
             scoreSources[key] = "deterministic";
@@ -305,7 +319,7 @@ Return ONLY valid JSON.`;
       }
 
       // Ensure all five scores exist (fallback to 50 if both deterministic and AI failed)
-      for (const key of ["airQuality", "waterQuality", "walkability", "greenSpace", "pollution"]) {
+      for (const key of ["airQuality", "waterQuality", "climateEmissions", "greenSpace", "pollution"]) {
         if (finalScores[key] === undefined) {
           finalScores[key] = 50;
           scoreSources[key] = "ai";
@@ -387,14 +401,14 @@ Return ONLY valid JSON.`;
         scores: {
           airQuality: finalScores.airQuality,
           waterQuality: finalScores.waterQuality,
-          walkability: finalScores.walkability,
+          climateEmissions: finalScores.climateEmissions,
           greenSpace: finalScores.greenSpace,
           pollution: finalScores.pollution,
         },
         scoreDetails: {
           airQuality: finalScoreDetails.airQuality,
           waterQuality: finalScoreDetails.waterQuality,
-          walkability: finalScoreDetails.walkability,
+          climateEmissions: finalScoreDetails.climateEmissions,
           greenSpace: finalScoreDetails.greenSpace,
           pollution: finalScoreDetails.pollution,
         },
