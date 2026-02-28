@@ -154,8 +154,17 @@ export default function Home() {
     };
   }, []);
 
-  // Initialize with user location (with fast timeout fallback)
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlLat = parseFloat(params.get("lat") || "");
+    const urlLng = parseFloat(params.get("lng") || "");
+
+    if (!isNaN(urlLat) && !isNaN(urlLng)) {
+      setCenter([urlLat, urlLng]);
+      handleLocationSelect(urlLat, urlLng);
+      return;
+    }
+
     let timeoutId: NodeJS.Timeout;
     
     const setDefaultLocation = () => {
@@ -164,7 +173,6 @@ export default function Home() {
       }
     };
     
-    // Set fallback after 3 seconds if geolocation is slow
     timeoutId = setTimeout(setDefaultLocation, 3000);
     
     if (navigator.geolocation) {

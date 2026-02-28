@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Wind, Droplets, Thermometer, Trees, CheckCircle2, MessageCircle, Send, Loader2, Factory, AlertTriangle, ChevronDown, Lightbulb, Info, X, Minimize2, Maximize2, Share2, Check, Copy, Map, Shield, Database } from "lucide-react";
+import { Wind, Droplets, Thermometer, Trees, CheckCircle2, MessageCircle, Send, Loader2, Factory, AlertTriangle, ChevronDown, Lightbulb, Info, X, Minimize2, Maximize2, Share2, Check, Map, Shield, Database, ExternalLink, Leaf } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,76 @@ interface ClimateTraceData {
     emissions: number;
     emissionsFormatted: string;
   }[];
+}
+
+function getLetterGrade(score: number): { letter: string; modifier: string } {
+  if (score >= 93) return { letter: "A", modifier: "+" };
+  if (score >= 85) return { letter: "A", modifier: "" };
+  if (score >= 80) return { letter: "A", modifier: "-" };
+  if (score >= 77) return { letter: "B", modifier: "+" };
+  if (score >= 70) return { letter: "B", modifier: "" };
+  if (score >= 65) return { letter: "B", modifier: "-" };
+  if (score >= 60) return { letter: "C", modifier: "+" };
+  if (score >= 50) return { letter: "C", modifier: "" };
+  if (score >= 45) return { letter: "C", modifier: "-" };
+  if (score >= 40) return { letter: "D", modifier: "+" };
+  if (score >= 30) return { letter: "D", modifier: "" };
+  if (score >= 20) return { letter: "D", modifier: "-" };
+  return { letter: "F", modifier: "" };
+}
+
+function getGradeColor(score: number): string {
+  if (score >= 80) return "from-emerald-400 to-green-500";
+  if (score >= 65) return "from-green-400 to-lime-500";
+  if (score >= 50) return "from-yellow-400 to-amber-500";
+  if (score >= 30) return "from-orange-400 to-red-400";
+  return "from-red-500 to-rose-600";
+}
+
+function getGradeTextColor(score: number): string {
+  if (score >= 80) return "text-emerald-600";
+  if (score >= 65) return "text-green-600";
+  if (score >= 50) return "text-yellow-600";
+  if (score >= 30) return "text-orange-600";
+  return "text-red-600";
+}
+
+function getGradeBgColor(score: number): string {
+  if (score >= 80) return "bg-emerald-50 border-emerald-200";
+  if (score >= 65) return "bg-green-50 border-green-200";
+  if (score >= 50) return "bg-yellow-50 border-yellow-200";
+  if (score >= 30) return "bg-orange-50 border-orange-200";
+  return "bg-red-50 border-red-200";
+}
+
+function getScoreEmoji(score: number): string {
+  if (score >= 80) return "🌿";
+  if (score >= 65) return "🌱";
+  if (score >= 50) return "🌤";
+  if (score >= 30) return "⚠️";
+  return "🚨";
+}
+
+function getCategoryEmoji(key: string): string {
+  const map: Record<string, string> = {
+    airQuality: "💨",
+    waterQuality: "💧",
+    climateEmissions: "🌡️",
+    greenSpace: "🌳",
+    pollution: "🧹",
+  };
+  return map[key] || "📊";
+}
+
+function getCategoryLabel(key: string): string {
+  const map: Record<string, string> = {
+    airQuality: "Air Quality",
+    waterQuality: "Water Quality",
+    climateEmissions: "Climate & Emissions",
+    greenSpace: "Green Space",
+    pollution: "Cleanliness",
+  };
+  return map[key] || key;
 }
 
 function DataSourceBadge({ source }: { source?: string }) {
@@ -63,10 +133,11 @@ interface ScoreProps {
 
 function ScoreRow({ label, value, icon: Icon, colorClass, detail, testId, climateTraceData, dataSource }: ScoreProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const grade = getLetterGrade(value);
   
-  let statusColor = "bg-red-500";
-  if (value >= 70) statusColor = "bg-green-500";
-  else if (value >= 40) statusColor = "bg-yellow-500";
+  let barColor = "bg-red-500";
+  if (value >= 70) barColor = "bg-green-500";
+  else if (value >= 40) barColor = "bg-yellow-500";
 
   const hasDetails = detail && (detail.factors?.length > 0 || detail.tips?.length);
   const hasClimateTrace = climateTraceData && climateTraceData.sourcesCount > 0;
@@ -83,12 +154,13 @@ function ScoreRow({ label, value, icon: Icon, colorClass, detail, testId, climat
           <div className={`p-2 rounded-lg bg-white shadow-sm ${colorClass}`}>
             <Icon className="w-5 h-5" />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <div className="flex justify-between items-center mb-1">
-              <span className="font-semibold text-sm text-foreground/80">{label}</span>
-              <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm text-foreground/80 truncate">{label}</span>
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <DataSourceBadge source={dataSource} />
-                <span className="font-bold text-foreground">{value}/100</span>
+                <span className={`font-bold text-sm ${getGradeTextColor(value)}`} data-testid={`${testId}-grade`}>{grade.letter}{grade.modifier}</span>
+                <span className="text-xs text-muted-foreground">{value}</span>
                 {isExpandable && (
                   <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                 )}
@@ -99,7 +171,7 @@ function ScoreRow({ label, value, icon: Icon, colorClass, detail, testId, climat
                 initial={{ width: 0 }}
                 animate={{ width: `${value}%` }}
                 transition={{ duration: 1, ease: "easeOut" }}
-                className={`h-full ${statusColor}`} 
+                className={`h-full rounded-full ${barColor}`} 
               />
             </div>
           </div>
@@ -125,7 +197,7 @@ function ScoreRow({ label, value, icon: Icon, colorClass, detail, testId, climat
                   <ul className="space-y-1">
                     {detail.factors.map((factor, i) => (
                       <li key={i} className="text-xs text-foreground/80 flex items-start gap-1">
-                        <span className="text-muted-foreground mt-0.5">•</span>
+                        <span className="text-muted-foreground mt-0.5">·</span>
                         {factor}
                       </li>
                     ))}
@@ -142,7 +214,7 @@ function ScoreRow({ label, value, icon: Icon, colorClass, detail, testId, climat
                   <ul className="space-y-1">
                     {detail.tips.map((tip, i) => (
                       <li key={i} className="text-xs text-amber-800 flex items-start gap-1">
-                        <span className="text-amber-500 mt-0.5">•</span>
+                        <span className="text-amber-500 mt-0.5">·</span>
                         {tip}
                       </li>
                     ))}
@@ -150,7 +222,6 @@ function ScoreRow({ label, value, icon: Icon, colorClass, detail, testId, climat
                 </div>
               )}
               
-              {/* Climate TRACE Emissions Data */}
               {hasClimateTrace && (
                 <div className="ml-11 p-2 rounded-lg bg-teal-50 border border-teal-200" data-testid="climate-trace-detail">
                   <div className="flex items-center gap-1 mb-2">
@@ -159,17 +230,17 @@ function ScoreRow({ label, value, icon: Icon, colorClass, detail, testId, climat
                   </div>
                   <div className="grid grid-cols-2 gap-2 mb-2">
                     <div className="text-center p-1.5 bg-white rounded border border-teal-100">
-                      <div className="text-sm font-bold text-foreground">{climateTraceData.sourcesCount}</div>
+                      <div className="text-sm font-bold text-foreground">{climateTraceData!.sourcesCount}</div>
                       <div className="text-xs text-muted-foreground">Sources</div>
                     </div>
                     <div className="text-center p-1.5 bg-white rounded border border-teal-100">
-                      <div className="text-sm font-bold text-foreground">{climateTraceData.totalEmissionsFormatted}</div>
+                      <div className="text-sm font-bold text-foreground">{climateTraceData!.totalEmissionsFormatted}</div>
                       <div className="text-xs text-muted-foreground">CO2e/yr</div>
                     </div>
                   </div>
-                  {climateTraceData.sectorBreakdown.length > 0 && (
+                  {climateTraceData!.sectorBreakdown.length > 0 && (
                     <div className="flex flex-wrap gap-1">
-                      {climateTraceData.sectorBreakdown.slice(0, 3).map((sector, i) => (
+                      {climateTraceData!.sectorBreakdown.slice(0, 3).map((sector, i) => (
                         <Badge key={i} variant="secondary" className="text-xs bg-teal-100 text-teal-800 border-teal-200">
                           {sector.sector}: {sector.emissionsFormatted}
                         </Badge>
@@ -280,42 +351,60 @@ export function EnvironmentalCard({ data, lat, lng, isLoading, onClose, isMinimi
   const [isAsking, setIsAsking] = useState(false);
   const [shareStatus, setShareStatus] = useState<"idle" | "copied">("idle");
 
+  useEffect(() => {
+    if (lat !== undefined && lng !== undefined && data?.location) {
+      const params = new URLSearchParams(window.location.search);
+      params.set("lat", lat.toFixed(4));
+      params.set("lng", lng.toFixed(4));
+      const newUrl = `${window.location.pathname}?${params.toString()}`;
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, [lat, lng, data?.location]);
+
   const handleShare = async () => {
     const scores = data.scores;
     const average = Math.round(Object.values(scores).reduce((a, b) => a + b, 0) / Object.values(scores).length);
+    const overallGrade = getLetterGrade(average);
+    const emoji = getScoreEmoji(average);
+
+    const bestCategory = Object.entries(scores).reduce((best, [key, val]) => val > best[1] ? [key, val] as [string, number] : best, ["", 0] as [string, number]);
+    const worstCategory = Object.entries(scores).reduce((worst, [key, val]) => val < worst[1] ? [key, val] as [string, number] : worst, ["", 100] as [string, number]);
+
+    const scoreLines = Object.entries(scores).map(([key, val]) => {
+      const g = getLetterGrade(val);
+      return `${getCategoryEmoji(key)} ${getCategoryLabel(key)}: ${g.letter}${g.modifier}`;
+    });
+
+    const shareText = `${emoji} ${data.location} scored ${overallGrade.letter}${overallGrade.modifier} on Verde!
+
+${scoreLines.join("\n")}
+
+Best: ${getCategoryEmoji(bestCategory[0])} ${getCategoryLabel(bestCategory[0])} (${getLetterGrade(bestCategory[1]).letter}${getLetterGrade(bestCategory[1]).modifier})
+Needs work: ${getCategoryEmoji(worstCategory[0])} ${getCategoryLabel(worstCategory[0])} (${getLetterGrade(worstCategory[1]).letter}${getLetterGrade(worstCategory[1]).modifier})
+
+How does your area compare?`;
+
+    const shareUrl = lat !== undefined && lng !== undefined 
+      ? `${window.location.origin}?lat=${lat.toFixed(4)}&lng=${lng.toFixed(4)}`
+      : window.location.href;
     
-    const shareText = `Check out the environmental vibe of ${data.location}!
-
-Overall Score: ${average}/100
-Air Quality: ${scores.airQuality}/100
-Water Quality: ${scores.waterQuality}/100
-Climate & Emissions: ${scores.climateEmissions}/100
-Green Space: ${scores.greenSpace}/100
-Pollution: ${scores.pollution}/100
-
-Explore environmental data at Verde`;
-
-    const shareUrl = window.location.href;
-    
-    // Try native share first (mobile)
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Verde - ${data.location}`,
+          title: `${data.location} got ${overallGrade.letter}${overallGrade.modifier} on Verde`,
           text: shareText,
           url: shareUrl,
         });
         return;
       } catch (err) {
-        // User cancelled or share failed, fall back to clipboard
+        // fall through
       }
     }
     
-    // Fallback: copy to clipboard
     try {
-      await navigator.clipboard.writeText(`${shareText}\n\n${shareUrl}`);
+      await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
       setShareStatus("copied");
-      setTimeout(() => setShareStatus("idle"), 2000);
+      setTimeout(() => setShareStatus("idle"), 2500);
     } catch (err) {
       console.error("Failed to copy:", err);
     }
@@ -346,28 +435,33 @@ Explore environmental data at Verde`;
   if (isLoading) {
     return (
       <div className="bg-card/80 backdrop-blur-md border border-white/20 p-6 rounded-3xl shadow-xl w-full max-w-md animate-pulse">
-        <div className="h-8 bg-muted rounded-lg w-2/3 mb-4"></div>
-        <div className="h-20 bg-muted rounded-lg w-full mb-6"></div>
-        <div className="space-y-4">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-16 h-16 bg-muted rounded-2xl"></div>
+          <div className="flex-1">
+            <div className="h-5 bg-muted rounded-lg w-2/3 mb-2"></div>
+            <div className="h-3 bg-muted rounded w-1/2"></div>
+          </div>
+        </div>
+        <div className="h-16 bg-muted rounded-lg w-full mb-4"></div>
+        <div className="space-y-3">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-16 bg-muted rounded-xl"></div>
+            <div key={i} className="h-14 bg-muted rounded-xl"></div>
           ))}
         </div>
       </div>
     );
   }
 
-  // Calculate overall vibe
   const scores = Object.values(data.scores);
   const average = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+  const overallGrade = getLetterGrade(average);
   
   let vibeLabel = "Good";
-  let vibeColor = "text-green-600";
-  if (average >= 80) { vibeLabel = "Excellent"; vibeColor = "text-emerald-600"; }
-  else if (average < 50) { vibeLabel = "Poor"; vibeColor = "text-red-500"; }
-  else if (average < 70) { vibeLabel = "Moderate"; vibeColor = "text-yellow-600"; }
+  if (average >= 80) vibeLabel = "Excellent";
+  else if (average < 30) vibeLabel = "Critical";
+  else if (average < 50) vibeLabel = "Poor";
+  else if (average < 70) vibeLabel = "Moderate";
 
-  // Minimized view
   if (isMinimized) {
     return (
       <motion.div 
@@ -380,14 +474,14 @@ Explore environmental data at Verde`;
           className="w-full p-3 flex items-center gap-3 hover:bg-secondary/30 transition-colors"
           data-testid="button-expand-card"
         >
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md flex-shrink-0 ${
-            average >= 70 ? 'bg-green-500' : average >= 50 ? 'bg-yellow-500' : 'bg-red-500'
-          }`}>
-            {average}
+          <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${getGradeColor(average)} flex items-center justify-center shadow-md flex-shrink-0`}>
+            <span className="text-white font-bold text-lg" data-testid="text-overall-grade">
+              {overallGrade.letter}{overallGrade.modifier}
+            </span>
           </div>
           <div className="flex-1 text-left min-w-0">
             <div className="font-semibold text-sm text-foreground truncate">{data.location}</div>
-            <div className={`text-xs ${vibeColor}`}>{vibeLabel} Environmental Vibe</div>
+            <div className={`text-xs ${getGradeTextColor(average)}`}>{vibeLabel}</div>
           </div>
           <Maximize2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
         </button>
@@ -403,36 +497,21 @@ Explore environmental data at Verde`;
     >
       <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-primary via-accent to-primary z-10" />
       
-      {/* Header with close/minimize buttons */}
       <div className="flex items-center justify-between p-3 pt-4 border-b border-secondary/30">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md flex-shrink-0 ${
-            average >= 70 ? 'bg-green-500' : average >= 50 ? 'bg-yellow-500' : 'bg-red-500'
-          }`}>
-            {average}
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${getGradeColor(average)} flex flex-col items-center justify-center shadow-lg flex-shrink-0`} data-testid="badge-overall-grade">
+            <span className="text-white font-bold text-xl leading-none">{overallGrade.letter}{overallGrade.modifier}</span>
+            <span className="text-white/80 text-[9px] font-medium leading-none mt-0.5">{average}/100</span>
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-bold font-display text-foreground truncate">{data.location}</h2>
-            <div className="flex items-center gap-1">
-              <span className={`text-xs font-medium ${vibeColor}`}>{vibeLabel}</span>
+            <h2 className="text-base font-bold font-display text-foreground truncate" data-testid="text-location">{data.location}</h2>
+            <div className="flex items-center gap-1.5">
+              <span className={`text-xs font-semibold ${getGradeTextColor(average)}`}>{vibeLabel}</span>
+              <span className="text-[10px] text-muted-foreground">Environmental Score</span>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={handleShare}
-            className="h-8 w-8 rounded-lg"
-            data-testid="button-share"
-            title={shareStatus === "copied" ? "Copied!" : "Share"}
-          >
-            {shareStatus === "copied" ? (
-              <Check className="w-4 h-4 text-green-500" />
-            ) : (
-              <Share2 className="w-4 h-4" />
-            )}
-          </Button>
           {onToggleMinimize && (
             <Button 
               variant="ghost" 
@@ -458,121 +537,112 @@ Explore environmental data at Verde`;
         </div>
       </div>
       
-      <div className="p-4 md:p-6 overflow-y-auto custom-scrollbar">
-        <div className="mb-4">
-          <div className="flex justify-between items-start">
-            <div className="sr-only">
-              <h2>{data.location}</h2>
-              <div className="flex items-center gap-2 mt-1">
-                <span>Overall Vibe</span>
-                <span className={vibeColor}>{vibeLabel} ({average})</span>
-              </div>
+      <div className="p-4 md:p-5 overflow-y-auto custom-scrollbar">
+        <p className="text-sm text-muted-foreground leading-relaxed bg-secondary/20 p-3 rounded-lg border border-secondary/50 mb-4" data-testid="text-summary">
+          {data.summary}
+        </p>
+          
+        {data.aqiContext ? (
+          <div className="mb-4 p-3 rounded-lg bg-sky-50 border border-sky-200" data-testid="section-aqi-context">
+            <div className="flex items-center gap-2 mb-2">
+              <Wind className="w-4 h-4 text-sky-600" />
+              <span className="text-sm font-medium text-sky-800">Real-time Air Quality</span>
             </div>
-          </div>
-          
-          <p className="mt-4 text-sm text-muted-foreground leading-relaxed bg-secondary/20 p-3 rounded-lg border border-secondary/50">
-            {data.summary}
-          </p>
-          
-          {/* Real-time AQI Data - Prominent at top */}
-          {data.aqiContext ? (
-            <div className="mt-4 p-3 rounded-lg bg-sky-50 border border-sky-200" data-testid="section-aqi-context">
-              <div className="flex items-center gap-2 mb-2">
-                <Wind className="w-4 h-4 text-sky-600" />
-                <span className="text-sm font-medium text-sky-800">Real-time Air Quality</span>
+            <div className="flex items-center gap-3 mb-2">
+              <div 
+                className={`text-center p-2 px-4 rounded border ${
+                  data.aqiContext.aqi <= 50 ? 'bg-green-100 border-green-200' :
+                  data.aqiContext.aqi <= 100 ? 'bg-yellow-100 border-yellow-200' :
+                  data.aqiContext.aqi <= 150 ? 'bg-orange-100 border-orange-200' :
+                  'bg-red-100 border-red-200'
+                }`}
+                data-testid="badge-aqi-value"
+              >
+                <div className={`text-2xl font-bold ${
+                  data.aqiContext.aqi <= 50 ? 'text-green-700' :
+                  data.aqiContext.aqi <= 100 ? 'text-yellow-700' :
+                  data.aqiContext.aqi <= 150 ? 'text-orange-700' :
+                  'text-red-700'
+                }`}>{data.aqiContext.aqi}</div>
+                <div className="text-xs text-muted-foreground">AQI</div>
               </div>
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex-1">
                 <div 
-                  className={`text-center p-2 px-4 rounded border ${
-                    data.aqiContext.aqi <= 50 ? 'bg-green-100 border-green-200' :
-                    data.aqiContext.aqi <= 100 ? 'bg-yellow-100 border-yellow-200' :
-                    data.aqiContext.aqi <= 150 ? 'bg-orange-100 border-orange-200' :
-                    'bg-red-100 border-red-200'
-                  }`}
-                  data-testid="badge-aqi-value"
-                >
-                  <div className={`text-2xl font-bold ${
+                  className={`text-sm font-medium ${
                     data.aqiContext.aqi <= 50 ? 'text-green-700' :
                     data.aqiContext.aqi <= 100 ? 'text-yellow-700' :
                     data.aqiContext.aqi <= 150 ? 'text-orange-700' :
                     'text-red-700'
-                  }`}>{data.aqiContext.aqi}</div>
-                  <div className="text-xs text-muted-foreground">AQI</div>
-                </div>
-                <div className="flex-1">
-                  <div 
-                    className={`text-sm font-medium ${
-                      data.aqiContext.aqi <= 50 ? 'text-green-700' :
-                      data.aqiContext.aqi <= 100 ? 'text-yellow-700' :
-                      data.aqiContext.aqi <= 150 ? 'text-orange-700' :
-                      'text-red-700'
-                    }`}
-                    data-testid="text-aqi-category"
-                  >{data.aqiContext.category}</div>
-                  {data.aqiContext.dominantPollutant && (
-                    <div className="text-xs text-muted-foreground" data-testid="text-aqi-pollutant">
-                      Main pollutant: {data.aqiContext.dominantPollutant.toUpperCase()}
-                    </div>
-                  )}
-                  {data.aqiContext.station && (
-                    <div className="text-xs text-muted-foreground truncate" title={data.aqiContext.station} data-testid="text-aqi-station">
-                      Station: {data.aqiContext.station}
-                    </div>
-                  )}
-                </div>
+                  }`}
+                  data-testid="text-aqi-category"
+                >{data.aqiContext.category}</div>
+                {data.aqiContext.dominantPollutant && (
+                  <div className="text-xs text-muted-foreground" data-testid="text-aqi-pollutant">
+                    Main pollutant: {data.aqiContext.dominantPollutant.toUpperCase()}
+                  </div>
+                )}
+                {data.aqiContext.station && (
+                  <div className="text-xs text-muted-foreground truncate" title={data.aqiContext.station} data-testid="text-aqi-station">
+                    Station: {data.aqiContext.station}
+                  </div>
+                )}
               </div>
             </div>
-          ) : (
-            <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-muted" data-testid="section-aqi-unavailable">
-              <div className="flex items-center gap-2">
-                <Wind className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Real-time air quality data unavailable for this location</span>
-              </div>
-            </div>
-          )}
-          
-          {/* Ask a Question Section */}
-          <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
-            <div className="flex items-center gap-2 mb-2">
-              <MessageCircle className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium text-foreground">Ask about this place</span>
-            </div>
-            <form 
-              onSubmit={(e) => { e.preventDefault(); handleAskQuestion(); }}
-              className="flex gap-2"
-            >
-              <Input
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="e.g., Best hiking trails nearby?"
-                className="flex-1 h-9 text-sm bg-white border-primary/20"
-                disabled={isAsking}
-                data-testid="input-question"
-              />
-              <Button 
-                type="submit" 
-                size="icon" 
-                disabled={!question.trim() || isAsking}
-                className="h-9 w-9"
-                data-testid="button-ask"
-              >
-                {isAsking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              </Button>
-            </form>
-            {answer && (
-              <motion.div 
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                className="mt-3 p-2 rounded bg-white border border-primary/10 text-sm text-foreground/90"
-                data-testid="text-ai-answer"
-              >
-                {answer}
-              </motion.div>
-            )}
           </div>
+        ) : (
+          <div className="mb-4 p-3 rounded-lg bg-muted/30 border border-muted" data-testid="section-aqi-unavailable">
+            <div className="flex items-center gap-2">
+              <Wind className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Real-time air quality data unavailable for this location</span>
+            </div>
+          </div>
+        )}
+        
+        <div className="mb-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
+          <div className="flex items-center gap-2 mb-2">
+            <MessageCircle className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium text-foreground">Ask about this place</span>
+          </div>
+          <form 
+            onSubmit={(e) => { e.preventDefault(); handleAskQuestion(); }}
+            className="flex gap-2"
+          >
+            <Input
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="e.g., Best hiking trails nearby?"
+              className="flex-1 h-9 text-sm bg-white border-primary/20"
+              disabled={isAsking}
+              data-testid="input-question"
+            />
+            <Button 
+              type="submit" 
+              size="icon" 
+              disabled={!question.trim() || isAsking}
+              className="h-9 w-9"
+              data-testid="button-ask"
+            >
+              {isAsking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            </Button>
+          </form>
+          {answer && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              className="mt-3 p-2 rounded bg-white border border-primary/10 text-sm text-foreground/90"
+              data-testid="text-ai-answer"
+            >
+              {answer}
+            </motion.div>
+          )}
         </div>
 
-        <div className="space-y-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Category Scores</span>
+          <span className="text-[10px] text-muted-foreground">tap to expand</span>
+        </div>
+
+        <div className="space-y-2.5">
           <ScoreRow 
             label="Air Quality" 
             value={data.scores.airQuality} 
@@ -620,12 +690,33 @@ Explore environmental data at Verde`;
             dataSource={data.scoreSources?.pollution}
           />
         </div>
-        
-        <p className="text-xs text-center text-muted-foreground mt-2">
-          Click any score to see detailed factors
-        </p>
 
-        {/* EPA Facility Context */}
+        <div className="mt-4">
+          <Button
+            onClick={handleShare}
+            variant={shareStatus === "copied" ? "default" : "default"}
+            size="lg"
+            className={`w-full rounded-xl font-semibold text-sm ${
+              shareStatus === "copied" 
+                ? "bg-green-500 text-white" 
+                : "bg-primary text-white shadow-md"
+            }`}
+            data-testid="button-share"
+          >
+            {shareStatus === "copied" ? (
+              <>
+                <Check className="w-4 h-4 mr-2" />
+                Copied to clipboard!
+              </>
+            ) : (
+              <>
+                <Share2 className="w-4 h-4 mr-2" />
+                Share {overallGrade.letter}{overallGrade.modifier} Score
+              </>
+            )}
+          </Button>
+        </div>
+
         {data.epaContext && data.epaContext.totalFacilities > 0 && (
           <div className="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200" data-testid="section-epa-context">
             <div className="flex items-center gap-2 mb-2">
@@ -663,7 +754,6 @@ Explore environmental data at Verde`;
           </div>
         )}
         
-        {/* CalEnviroScreen 4.0 Context (California) */}
         {data.cesContext && (
           <div className="mt-4 p-3 rounded-lg bg-indigo-50 border border-indigo-200" data-testid="section-ces-context">
             <div className="flex items-center gap-2 mb-2">
@@ -719,7 +809,6 @@ Explore environmental data at Verde`;
           </div>
         )}
 
-        {/* Land Cover Data from Sentinel 2 */}
         {data.landCoverContext && data.landCoverContext.classes.length > 0 && (
           <div className="mt-4 p-3 rounded-lg bg-sky-50 border border-sky-200" data-testid="section-land-cover">
             <div className="flex items-center gap-2 mb-2">
@@ -766,11 +855,15 @@ Explore environmental data at Verde`;
           </div>
         )}
         
-        <div className="mt-6 text-center pb-2">
-          <p className="text-xs text-muted-foreground italic">
+        <div className="mt-5 pt-3 border-t border-secondary/40">
+          <div className="flex items-center justify-center gap-1.5 mb-1">
+            <Leaf className="w-3 h-3 text-primary" />
+            <span className="text-xs font-semibold text-primary">Verde</span>
+          </div>
+          <p className="text-[10px] text-center text-muted-foreground">
             {data.cesContext 
-              ? "Scores driven by CalEnviroScreen 4.0, EPA ECHO, WAQI, Sentinel-2, and Climate TRACE data."
-              : "Analysis powered by EPA ECHO, WAQI, Sentinel-2, Climate TRACE, and Verde AI."}
+              ? "Scores driven by CalEnviroScreen 4.0, EPA ECHO, WAQI, Sentinel-2 & Climate TRACE."
+              : "Powered by EPA ECHO, WAQI, Sentinel-2, Climate TRACE & Verde AI."}
           </p>
         </div>
       </div>

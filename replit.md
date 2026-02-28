@@ -40,6 +40,14 @@ The application employs a deterministic scoring engine that computes environment
 
 Score sources are tracked per-category (`scoreSources` field): "calenviroscreen", "climate-trace", "deterministic", or "ai".
 
+### UI & Sharing
+- **Letter grades** (A+ to F) are the primary score display, with numeric values shown smaller as secondary context.
+- The overall score badge uses a gradient color (green→yellow→red) based on the average score.
+- **Share button** is a full-width primary CTA below the score rows, labeled "Share [grade] Score".
+- **Share text** includes emoji, letter grades for all 5 categories, best/worst highlights, and a "How does your area compare?" CTA.
+- **URL-based location sharing**: lat/lng query params are encoded in the URL (e.g., `?lat=34.0522&lng=-118.2437`). Opening a shared link auto-triggers analysis.
+- **OG meta tags** in `client/index.html` for social media previews (og:title, og:description, og:site_name, og:url, twitter:card).
+
 **Climate & Emissions** score (replaced Walkability) leverages the full Climate TRACE database (1.1M emission sources, 120 countries, 46 sectors) within a 50km radius. Scoring uses tiered emissions thresholds with logarithmic scaling, sector diversity penalties, and CES traffic density blending for CA locations.
 
 ### CalEnviroScreen 4.0 Integration (`server/calenviroScreenQuery.ts`)
