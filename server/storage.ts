@@ -11,7 +11,6 @@ export interface IStorage {
   resetDailyAnalysisCount(userId: string): Promise<void>;
   incrementAnalysisCount(userId: string): Promise<void>;
   updateUserGamification(userId: string, updates: Partial<User>): Promise<void>;
-  updateUserSubscription(userId: string, data: { tier: string; stripeCustomerId?: string; stripeSubscriptionId?: string; status?: string; expiresAt?: Date }): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -69,18 +68,6 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId));
   }
 
-  async updateUserSubscription(userId: string, data: { tier: string; stripeCustomerId?: string; stripeSubscriptionId?: string; status?: string; expiresAt?: Date }): Promise<void> {
-    await db.update(users)
-      .set({
-        subscriptionTier: data.tier,
-        stripeCustomerId: data.stripeCustomerId,
-        stripeSubscriptionId: data.stripeSubscriptionId,
-        subscriptionStatus: data.status || 'active',
-        subscriptionExpiresAt: data.expiresAt,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, userId));
-  }
 }
 
 export const storage = new DatabaseStorage();
